@@ -5,7 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-
+import os
+from dotenv import load_dotenv
 app = FastAPI()
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -20,13 +21,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+load_dotenv()
+
 # --- DB 연결 설정 ---
 def get_db_connection():
     return pymysql.connect(
         host='127.0.0.1',
         user='root',
-        password='root', 
-        db='refrigerator_db',
+        password=os.getenv('DB_PASSWORD'), 
+        db=os.getenv('DB_NAME'),
         charset='utf8mb4',
         cursorclass=pymysql.cursors.DictCursor
     )

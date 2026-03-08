@@ -1,7 +1,10 @@
 import flet as ft
 import requests
+import os
+from dotenv import load_dotenv
 
-SERVER_URL = "https://quizzable-flor-lexicographical.ngrok-free.dev"
+load_dotenv()
+SERVER_URL = os.getenv('BASE_URL')
 def main(page: ft.Page):
     page.title = "스마트 냉장고 관리"
     page.window_width = 400
