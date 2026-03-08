@@ -4,29 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Smart Fridge Mobile</title>
-
     <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#1a73e8">
-
-    <script>
-      // 서비스 워커 등록 스크립트
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/static/sw.js');
-        });
-      }
-    </script>
     <style>
         body { font-family: -apple-system, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
         .container { max-width: 480px; margin: auto; }
         header { background: #1a73e8; color: white; padding: 20px; border-radius: 15px; text-align: center; margin-bottom: 20px; }
-        
-        /* 입력 폼 스타일 */
         .add-form { background: white; padding: 20px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
         input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
         .add-btn { width: 100%; padding: 12px; background: #1a73e8; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
-
-        /* 아이템 카드 및 삭제 버튼 스타일 */
         .item-list { display: flex; flex-direction: column; gap: 10px; }
         .item-card { background: white; padding: 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .item-info { display: flex; flex-direction: column; }
@@ -37,16 +23,12 @@
 </head>
 <body>
     <div class="container">
-        <header>
-            <h2 style="margin:0">❄️ 스마트 냉장고</h2>
-        </header>
-
+        <header><h2 style="margin:0">❄️ 스마트 냉장고</h2></header>
         <div class="add-form">
-            <input type="text" id="itemName" placeholder="재료 이름 (예: 사과)">
+            <input type="text" id="itemName" placeholder="재료 이름 (예: 우유)">
             <input type="text" id="itemDate" placeholder="소비기한 (예: 2026-03-30)">
             <button class="add-btn" onclick="addItem()">재료 등록하기</button>
         </div>
-
         <div class="item-list">
             {% for item in items %}
             <div class="item-card">
@@ -63,42 +45,40 @@
     </div>
 
     <script>
-        // 재료 추가 기능
+        // PWA를 위한 서비스 워커만 등록 (알림 로직 제거)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js');
+            });
+        }
+
+        // 재료 추가 (성공 시 즉시 새로고침)
         async function addItem() {
             const name = document.getElementById('itemName').value;
             const date = document.getElementById('itemDate').value;
+            if (!name || !date) { alert("입력창을 채워주세요!"); return; }
 
-            if (!name || !date) {
-                alert("이름과 날짜를 모두 입력해주세요!");
-                return;
-            }
-
-            const response = await fetch('/items', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: name, date: date })
-            });
-
-            if (response.ok) {
-                location.reload();
-            } else {
-                alert("등록 실패");
-            }
+            try {
+                const response = await fetch('/items', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name, date: date })
+                });
+                if (response.ok) {
+                    location.reload(); // 즉시 새로고침하여 데이터 확인
+                } else {
+                    alert("등록 실패");
+                }
+            } catch (e) { console.error(e); }
         }
 
-        // 재료 삭제 기능
+        // 재료 삭제 (성공 시 즉시 새로고침)
         async function deleteItem(name) {
-            if (!confirm(`'${name}'을(를) 삭제하시겠습니까?`)) return;
-
-            const response = await fetch(`/items/${encodeURIComponent(name)}`, {
-                method: 'DELETE'
-            });
-
-            if (response.ok) {
-                location.reload(); // 삭제 성공 시 화면 새로고침
-            } else {
-                alert("삭제 실패");
-            }
+            if (!confirm(`'${name}'을 삭제할까요?`)) return;
+            try {
+                const response = await fetch(`/items/${encodeURIComponent(name)}`, { method: 'DELETE' });
+                if (response.ok) location.reload();
+            } catch (e) { console.error(e); }
         }
     </script>
 </body>
