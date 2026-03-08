@@ -1,0 +1,15 @@
+{
+  "name": "스마트 냉장고 관리자",
+  "short_name": "냉장고",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1a73e8",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/1162/1162456.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
