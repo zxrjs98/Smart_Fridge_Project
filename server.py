@@ -1,44 +1,60 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from pydantic import BaseModel
 import pymysql
-from typing import List
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 
 app = FastAPI()
+templates = Jinja2Templates(directory="templates")
 
-# MySQL 접속 정보 (본인의 비밀번호로 수정하세요)
+# 1. 모바일 및 외부 기기 접속 허용 (CORS)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- DB 연결 설정 ---
 def get_db_connection():
     return pymysql.connect(
-        host='127.0.0.1', # 'localhost' 대신 숫자로 써보세요 (더 안정적입니다)
+        host='127.0.0.1',
         user='root',
-        password='root', # <--- 이 부분이 틀리면 무한 로딩이 걸릴 수 있습니다
+        password='root', 
         db='refrigerator_db',
         charset='utf8mb4',
-        connect_timeout=5, # 5초 안에 연결 안 되면 에러를 내도록 설정 (무한 로딩 방지)
         cursorclass=pymysql.cursors.DictCursor
     )
-
-# 서버 시작 시 DB 및 테이블 자동 생성
-def init_db():
-    conn = pymysql.connect(host='localhost', user='root', password='root')
-    cursor = conn.cursor()
-    cursor.execute("CREATE DATABASE IF NOT EXISTS refrigerator_db")
-    cursor.execute("USE refrigerator_db")
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS items (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(100) NOT NULL,
-            date VARCHAR(50) NOT NULL
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-init_db()
 
 class Item(BaseModel):
     name: str
     date: str
 
+# --- 경로 설정 (Routes) ---
+
+# A. 모바일용 웹 화면 (GET /)
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    conn = get_db_connection()
+    with conn.cursor() as cursor:
+        cursor.execute("SELECT name, date FROM items ORDER BY id DESC")
+        items = cursor.fetchall()
+    conn.close()
+    return templates.TemplateResponse("index.html", {"request": request, "items": items})
+
+# B. 데이터 저장 API (POST /items) - main.py에서 재료 추가 시 호출
+@app.post("/items")
+async def add_item(item: Item):
+    conn = get_db_connection()
+    with conn.cursor() as cursor:
+        sql = "INSERT INTO items (name, date) VALUES (%s, %s)"
+        cursor.execute(sql, (item.name, item.date))
+    conn.commit()
+    conn.close()
+    return {"message": "저장 성공"}
+
+# C. 데이터 조회 API (GET /items) - main.py에서 목록 새로고침 시 호출
 @app.get("/items")
 async def get_items():
     conn = get_db_connection()
@@ -48,12 +64,13 @@ async def get_items():
     conn.close()
     return result
 
-@app.post("/items")
-async def add_item(item: Item):
+# 특정 이름을 가진 아이템을 삭제하는 로직
+@app.delete("/items/{name}")
+async def delete_item(name: str):
     conn = get_db_connection()
     with conn.cursor() as cursor:
-        sql = "INSERT INTO items (name, date) VALUES (%s, %s)"
-        cursor.execute(sql, (item.name, item.date))
+        sql = "DELETE FROM items WHERE name = %s"
+        cursor.execute(sql, (name,))
     conn.commit()
     conn.close()
-    return {"message": "MySQL 저장 성공"}
+    return {"message": f"{name} 삭제 성공"}

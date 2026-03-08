@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smart Fridge Mobile</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 480px; margin: auto; }
+        header { background: #1a73e8; color: white; padding: 20px; border-radius: 15px; text-align: center; margin-bottom: 20px; }
+        
+        /* 입력 폼 스타일 */
+        .add-form { background: white; padding: 20px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        .add-btn { width: 100%; padding: 12px; background: #1a73e8; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
+        /* 아이템 카드 및 삭제 버튼 스타일 */
+        .item-list { display: flex; flex-direction: column; gap: 10px; }
+        .item-card { background: white; padding: 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .item-info { display: flex; flex-direction: column; }
+        .item-name { font-weight: bold; color: #333; font-size: 1.1em; }
+        .item-date { color: #666; font-size: 0.85em; margin-top: 4px; }
+        .delete-btn { background: #ff4d4d; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 0.8em; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h2 style="margin:0">❄️ 스마트 냉장고</h2>
+        </header>
+
+        <div class="add-form">
+            <input type="text" id="itemName" placeholder="재료 이름 (예: 사과)">
+            <input type="text" id="itemDate" placeholder="소비기한 (예: 2026-03-30)">
+            <button class="add-btn" onclick="addItem()">재료 등록하기</button>
+        </div>
+
+        <div class="item-list">
+            {% for item in items %}
+            <div class="item-card">
+                <div class="item-info">
+                    <span class="item-name">🍎 {{ item.name }}</span>
+                    <span class="item-date">유통기한: {{ item.date }}</span>
+                </div>
+                <button class="delete-btn" onclick="deleteItem('{{ item.name }}')">삭제</button>
+            </div>
+            {% else %}
+            <p style="text-align:center; color:#999; margin-top: 30px;">냉장고가 비어있습니다.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script>
+        // 재료 추가 기능
+        async function addItem() {
+            const name = document.getElementById('itemName').value;
+            const date = document.getElementById('itemDate').value;
+
+            if (!name || !date) {
+                alert("이름과 날짜를 모두 입력해주세요!");
+                return;
+            }
+
+            const response = await fetch('/items', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name, date: date })
+            });
+
+            if (response.ok) {
+                location.reload();
+            } else {
+                alert("등록 실패");
+            }
+        }
+
+        // 재료 삭제 기능
+        async function deleteItem(name) {
+            if (!confirm(`'${name}'을(를) 삭제하시겠습니까?`)) return;
+
+            const response = await fetch(`/items/${encodeURIComponent(name)}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                location.reload(); // 삭제 성공 시 화면 새로고침
+            } else {
+                alert("삭제 실패");
+            }
+        }
+    </script>
+</body>
+</html>

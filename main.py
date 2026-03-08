@@ -1,8 +1,7 @@
 import flet as ft
 import requests
 
-SERVER_URL = "http://127.0.0.1:8000"
-
+SERVER_URL = "https://quizzable-flor-lexicographical.ngrok-free.dev"
 def main(page: ft.Page):
     page.title = "스마트 냉장고 관리"
     page.window_width = 400
@@ -24,11 +23,19 @@ def main(page: ft.Page):
             print(f"서버 연결 오류: {e}")
 
     # 리스트에서 아이템 삭제 (화면상 삭제)
+    # 리스트에서 아이템 삭제 (서버 연동 버전)
     def remove_item_from_server(name, item_row):
         try:
-            inventory_column.controls.remove(item_row)
-            page.update()
-            # Tip: 실제 DB 삭제 연동 시 여기에 requests.delete 추가
+            # 1. 서버(DB)에 삭제 요청 보내기
+            response = requests.delete(f"{SERVER_URL}/items/{name}")
+            
+            if response.status_code == 200:
+                # 2. 서버 삭제 성공 시에만 화면에서 제거
+                inventory_column.controls.remove(item_row)
+                page.update()
+                print(f"{name} 삭제 완료")
+            else:
+                print("서버 삭제 실패")
         except Exception as e:
             print(f"삭제 오류: {e}")
 
@@ -76,10 +83,26 @@ def main(page: ft.Page):
 
     # 화면 구성
     page.add(
-        ft.AppBar(title=ft.Text("우리집 냉장고"), bgcolor=ft.colors.BLUE_50, center_title=True),
-        inventory_column,
-        ft.FloatingActionButton(icon=ft.icons.ADD, on_click=show_dialog, bgcolor=ft.colors.BLUE)
+    ft.AppBar(
+        title=ft.Text("우리집 냉장고"), 
+        bgcolor=ft.colors.BLUE_50, 
+        center_title=True,
+        # 우측 상단에 새로고침 버튼 추가
+        actions=[
+            ft.IconButton(
+                icon=ft.icons.REFRESH, 
+                on_click=lambda _: fetch_items(), # 버튼 누르면 서버에서 다시 가져옴
+                tooltip="새로고침"
+            )
+        ]
+    ),
+    inventory_column,
+    ft.FloatingActionButton(
+        icon=ft.icons.ADD, 
+        on_click=show_dialog, 
+        bgcolor=ft.colors.BLUE
     )
+)
 
     fetch_items()
 
