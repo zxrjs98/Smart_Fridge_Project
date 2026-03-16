@@ -1,83 +1,24 @@
-from fastapi import FastAPI, Request
-from pydantic import BaseModel
-import pymysql
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request, Depends
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-import os
-from dotenv import load_dotenv
+from sqlalchemy.orm import Session
+from database.connection import engine, get_db, Base
+from database.models import Item
+
+# [추가] 분리한 API 라우터 가져오기
+from api.items import router as items_router
+
 app = FastAPI()
+Base.metadata.create_all(bind=engine)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
 templates = Jinja2Templates(directory="templates")
 
-# 1. 모바일 및 외부 기기 접속 허용 (CORS)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# [핵심] 분리한 라우터 등록
+app.include_router(items_router)
 
-load_dotenv()
-
-# --- DB 연결 설정 ---
-def get_db_connection():
-    return pymysql.connect(
-        host='127.0.0.1',
-        user='root',
-        password=os.getenv('DB_PASSWORD'), 
-        db=os.getenv('DB_NAME'),
-        charset='utf8mb4',
-        cursorclass=pymysql.cursors.DictCursor
-    )
-
-class Item(BaseModel):
-    name: str
-    date: str
-
-# --- 경로 설정 (Routes) ---
-
-# A. 모바일용 웹 화면 (GET /)
-@app.get("/", response_class=HTMLResponse)
-async def read_root(request: Request):
-    conn = get_db_connection()
-    with conn.cursor() as cursor:
-        cursor.execute("SELECT name, date FROM items ORDER BY id DESC")
-        items = cursor.fetchall()
-    conn.close()
+# 메인 페이지 렌더링만 남깁니다.
+@app.get("/")
+async def read_root(request: Request, db: Session = Depends(get_db)):
+    items = db.query(Item).all()
     return templates.TemplateResponse("index.html", {"request": request, "items": items})
-
-# B. 데이터 저장 API (POST /items) - main.py에서 재료 추가 시 호출
-@app.post("/items")
-async def add_item(item: Item):
-    conn = get_db_connection()
-    with conn.cursor() as cursor:
-        sql = "INSERT INTO items (name, date) VALUES (%s, %s)"
-        cursor.execute(sql, (item.name, item.date))
-    conn.commit()
-    conn.close()
-    return {"message": "저장 성공"}
-
-# C. 데이터 조회 API (GET /items) - main.py에서 목록 새로고침 시 호출
-@app.get("/items")
-async def get_items():
-    conn = get_db_connection()
-    with conn.cursor() as cursor:
-        cursor.execute("SELECT name, date FROM items")
-        result = cursor.fetchall()
-    conn.close()
-    return result
-
-# 특정 이름을 가진 아이템을 삭제하는 로직
-@app.delete("/items/{name}")
-async def delete_item(name: str):
-    conn = get_db_connection()
-    with conn.cursor() as cursor:
-        sql = "DELETE FROM items WHERE name = %s"
-        cursor.execute(sql, (name,))
-    conn.commit()
-    conn.close()
-    return {"message": f"{name} 삭제 성공"}
