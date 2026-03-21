@@ -1,0 +1,245 @@
+/* 1. 기본 초기화 및 박스 모델 설정 */
+* {
+    box-sizing: border-box; /* 패딩이 너비에 포함되도록 설정 (가로 스크롤 방지 핵심) */
+    -webkit-tap-highlight-color: transparent; /* 모바일 클릭 시 파란색 잔상 제거 */
+    font-family: 'Pretendard', -apple-system, sans-serif;
+}
+
+:root {
+    --primary: #4A90E2;   /* 메인 블루 */
+    --danger: #FF6B6B;    /* 경고/삭제 레드 */
+    --warning: #FFD93D;   /* 임박 옐로우 */
+    --success: #6BCB77;   /* 안전 그린 */
+    --bg: #F0F4F8;        /* 앱 배경색 */
+    --card-bg: #FFFFFF;
+}
+
+/* 2. 바디 설정 (가로 흔들림 방지) */
+html, body {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;    /* 가로 스크롤 원천 차단 */
+    background-color: var(--bg);
+    -webkit-user-select: none; /* 텍스트 선택 방지 (앱 느낌 강조) */
+}
+
+body {
+    padding: 20px 15px; /* 좌우 여백 확보 */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* 3. 메인 컨테이너 */
+.app-container {
+    width: 100%;
+    max-width: 480px; /* 모바일 최적 너비 */
+    margin: 0 auto;
+}
+
+h1 {
+    font-size: 1.4rem;
+    color: #333;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+/* 4. 입력 폼 디자인 */
+.input-form {
+    background: var(--card-bg);
+    padding: 20px;
+    border-radius: 18px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+    margin-bottom: 25px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: relative; /* 자동완성 목록 기준점 */
+}
+
+.input-group label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #666;
+    margin-left: 4px;
+}
+
+input, select {
+    width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1.5px solid #E2E8F0;
+    font-size: 1rem;
+    transition: all 0.2s;
+    background-color: #FAFAFA;
+}
+
+input:focus, select:focus {
+    border-color: var(--primary);
+    background-color: #FFF;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.15);
+}
+
+#addBtn {
+    width: 100%;
+    padding: 15px;
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: bold;
+    margin-top: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+}
+
+#addBtn:active { transform: scale(0.97); }
+
+/* 5. 아이템 카드 리스트 */
+#itemList {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+}
+
+.item-card {
+    background: var(--card-bg);
+    padding: 16px;
+    border-radius: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+    border-left: 6px solid var(--primary);
+    transition: transform 0.2s;
+}
+
+.item-card.urgent { border-left-color: var(--danger); background-color: #FFF8F8; }
+.item-card.warning { border-left-color: var(--warning); background-color: #FFFEF2; }
+
+.info { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.info .category { font-size: 0.75rem; color: #999; font-weight: 600; }
+.info .name { font-size: 1.05rem; font-weight: 700; color: #333; }
+.info .expiry { font-size: 0.85rem; color: #777; }
+
+/* 6. D-Day 배지 스타일 */
+.d-day-badge {
+    padding: 6px 10px;
+    background: #EDF2F7;
+    border-radius: 10px;
+    text-align: center;
+    min-width: 75px;
+    margin: 0 10px;
+}
+
+.d-day-badge span, .d-day-badge strong {
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--primary);
+}
+
+.d-day-badge small {
+    font-size: 0.65rem;
+    display: block;
+    color: var(--danger);
+}
+
+/* 7. 삭제 버튼 */
+.delete-btn {
+    background: #F1F5F9;
+    border: none;
+    color: #94A3B8;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.delete-btn:hover { background: #E2E8F0; color: var(--danger); }
+
+/* 플로팅 버튼 스타일 */
+.fab-button {
+    position: fixed;       /* 스크롤과 상관없이 화면에 고정 */
+    bottom: 30px;          /* 하단에서 30px 띄움 */
+    right: 30px;           /* 우측에서 30px 띄움 */
+    width: 60px;
+    height: 60px;
+    background-color: var(--primary);
+    color: white;
+    border-radius: 50%;    /* 완전한 원형 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 30px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    cursor: pointer;
+    z-index: 1001;         /* 다른 요소보다 항상 위에 */
+    border: none;
+    transition: transform 0.2s, background-color 0.2s;
+}
+
+.fab-button:active {
+    transform: scale(0.9); /* 누를 때 살짝 작아지는 효과 */
+}
+
+/* 재료 추가 화면(모달) 스타일 */
+.add-modal {
+    display: none;         /* 기본적으로 숨김 */
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5); /* 배경 어둡게 */
+    z-index: 2000;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    width: 90%;
+    max-width: 400px;
+    background: white;
+    padding: 25px;
+    border-radius: 20px;
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+/* static/style.css 맨 아래에 추가하세요 */
+
+/* static/style.css */
+
+.app-header {
+    display: flex;          /* ⬅️ 이게 핵심! 자식 요소들을 가로로 나열합니다 */
+    flex-direction: row;    /* 가로 방향 설정 (기본값이지만 명시적 확인) */
+    justify-content: center; /* 가로 중앙 정렬 */
+    align-items: center;    /* 세로 중앙 정렬 (로고와 글자 높이 맞춤) */
+    gap: 12px;              /* 로고와 이름 사이의 적당한 간격 */
+    padding: 30px 0 20px 0;
+}
+
+.header-logo {
+    width: 35px;            /* 로고 크기 조절 */
+    height: 35px;           /* 높이도 지정해서 정사각형 유지 가능 */
+    object-fit: contain;
+}
+
+.header-title {
+    font-size: 1.8rem;      /* FreshKeep 글자 크기 */
+    font-weight: 900;
+    color: #333;
+    margin: 0;              /* ⬅️ 중요: h1 기본 마진 때문에 삐뚤어질 수 있으니 0으로! */
+    line-height: 1;         /* 줄 높이를 1로 해서 수직 정렬을 더 정확하게 */
+}
