@@ -1,167 +1,32 @@
 <!DOCTYPE html>
 <html lang="ko">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>FreshKeep - 스마트 냉장고</title>
-    <link rel="icon" type="image/png" href="/static/images/fresh.png">
-    <link rel="apple-touch-icon" href="/static/images/fresh.png">
-
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
-
     <style>
-        /* 기존 UI 스타일 유지 */
-        .item-card.urgent {
-            border-left: 5px solid #ff4d4d;
-            background: #fff5f5;
-        }
-
-        .item-card.warning {
-            border-left: 5px solid #ffa500;
-            background: #fffcf0;
-        }
-
-        .d-day-badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            font-weight: 700;
-            margin-left: 10px;
-        }
-
-        .badge-urgent {
-            background: #ff4d4d;
-            color: white;
-        }
-
-        .badge-warning {
-            background: #ffa500;
-            color: white;
-        }
-
-        .badge-normal {
-            background: #4A90E2;
-            color: white;
-        }
-
-        /* 🌟 전체 화면 재료 선택 모달 스타일 */
-        #addPage {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: white;
-            z-index: 3000;
-            flex-direction: column;
-            animation: slideUp 0.3s ease-out;
-        }
-
-        @keyframes slideUp {
-            from {
-                transform: translateY(100%);
-            }
-
-            to {
-                transform: translateY(0);
-            }
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px 20px;
-            border-bottom: 1px solid #eee;
-            background: #fff;
-        }
-
-        .search-container {
-            padding: 15px 20px;
-            background: #f8f9fa;
-        }
-
-        #ingSearch {
-            width: 100%;
-            padding: 12px;
-            border-radius: 12px;
-            border: 1px solid #ddd;
-            font-size: 1rem;
-            outline: none;
-            box-sizing: border-box;
-        }
-
-        .ingredient-grid {
-            flex: 1;
-            overflow-y: auto;
-            display: grid;
-            /* 🌟 반응형 3열 고정: 화면 크기에 상관없이 3개씩 정렬 */
-            grid-template-columns: repeat(3, 1fr);
-            /* 🌟 자동 높이 조절: 아이템이 적어도 위로 붙게 함 */
-            grid-auto-rows: min-content;
-            align-content: start;
-            gap: 12px;
-            padding: 20px;
-            /* 🌟 스크롤바 디자인 (선택) */
-            scrollbar-width: thin;
-            scrollbar-color: #ddd transparent;
-        }
-
-        .ing-item {
-            aspect-ratio: 1 / 1;
-            /* 🌟 정사각형 유지: 검색 결과가 줄어도 모양이 안 깨짐 */
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            border: 1px solid #eee;
-            border-radius: 15px;
-            background: #fff;
-            transition: 0.2s;
-            cursor: pointer;
-        }
-
-        /* 🌟 검색 결과가 없을 때 보여줄 메시지 스타일 */
-        #noResult {
-            grid-column: 1 / span 3;
-            text-align: center;
-            padding: 50px 0;
-            color: #bbb;
-            display: none;
-        }
-
-        .ing-item.selected {
-            border: 2px solid #4A90E2;
-            background: #eef6ff;
-            transform: scale(0.95);
-        }
-
-        .ing-item.hidden {
-            display: none;
-        }
-
-        .ing-icon {
-            font-size: 1.5rem;
-            margin-bottom: 5px;
-            display: block;
-        }
+        .item-card.urgent { border-left: 5px solid #ff4d4d; background: #fff5f5; }
+        .item-card.warning { border-left: 5px solid #ffa500; background: #fffcf0; }
+        .d-day-badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.85rem; font-weight: 700; margin-left: 10px; }
+        .badge-urgent { background: #ff4d4d; color: white; }
+        .badge-warning { background: #ffa500; color: white; }
+        .badge-normal { background: #4A90E2; color: white; }
+        #addPage { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 3000; flex-direction: column; animation: slideUp 0.3s ease-out; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid #eee; }
+        .ingredient-grid { flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 20px; }
+        .ing-item { aspect-ratio: 1/1; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 1px solid #eee; border-radius: 15px; background: #fff; cursor: pointer; }
+        .ing-item.selected { border: 2px solid #4A90E2; background: #eef6ff; }
+        .ing-item.hidden { display: none; }
     </style>
 </head>
-
 <body>
     <div class="app-container">
-        <header class="app-header"
-            style="display: flex; align-items: center; justify-content: center; gap: 12px; padding: 25px 0;">
+        <header class="app-header" style="display: flex; align-items: center; justify-content: center; gap: 12px; padding: 25px 0;">
             <img src="/static/images/fresh.png" alt="로고" style="width: 45px; height: 45px; object-fit: contain;">
-            <h1
-                style="margin:0; font-weight:900; background:linear-gradient(135deg,#4A90E2,#63B3ED);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">
-                FreshKeep</h1>
+            <h1 style="margin:0; font-weight:900; background:linear-gradient(135deg,#4A90E2,#63B3ED);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">FreshKeep</h1>
         </header>
 
         <div id="itemList">
@@ -170,13 +35,17 @@
                 <div class="info">
                     <span class="category" style="color:#888; font-size:0.9rem;">[{{ item.category }}]</span>
                     <strong class="name" style="font-size:1.1rem; display:block; margin:4px 0;">{{ item.name }}</strong>
-                    <span class="expiry" style="color:#666; font-size:0.9rem;">
-                        📅 ~ {{ item.expiry_date }}
-                        <span
-                            class="d-day-badge {% if item.d_day < 0 %}badge-urgent{% elif item.d_day <= 3 %}badge-warning{% else %}badge-normal{% endif %}">
-                            {% if item.d_day < 0 %}기한만료{% elif item.d_day==0 %}D-Day{% else %}D-{{ item.d_day }}{% endif
-                                %} </span>
+                    
+                    <div class="expiry-edit-zone" style="position: relative; cursor: pointer; display: inline-block;">
+                        <span class="expiry-text" style="color:#666; font-size:0.9rem;">📅 ~ {{ item.expiry_date }}</span>
+                        <input type="date" value="{{ item.expiry_date }}" 
+                               style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;"
+                               onchange="updateItemInline('{{ item.name }}', this)">
+                        
+                        <span class="d-day-badge {% if item.d_day < 0 %}badge-urgent{% elif item.d_day <= 3 %}badge-warning{% else %}badge-normal{% endif %}">
+                            {% if item.d_day < 0 %}기한만료{% elif item.d_day == 0 %}D-Day{% else %}D-{{ item.d_day }}{% endif %}
                         </span>
+                    </div>
                 </div>
                 <button class="delete-btn" onclick="deleteItem('{{ item.name }}')">삭제</button>
             </div>
@@ -184,129 +53,93 @@
         </div>
     </div>
 
-    <button class="fab-button" onclick="openAddPage()">+</button>
+    <button class="fab-button" onclick="openAddPage()" style="position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; border-radius: 50%; background: #4A90E2; color: white; border: none; font-size: 2rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">+</button>
 
     <div id="addPage">
         <div class="modal-header">
-            <button onclick="closeAddPage()"
-                style="background:none; border:none; font-size:1.5rem; cursor:pointer;">✕</button>
+            <button onclick="closeAddPage()" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">✕</button>
             <h3 style="margin:0; font-size:1.1rem;">재료 추가</h3>
-            <button onclick="saveSelectedItems()" id="saveBtn"
-                style="background:#4A90E2; color:white; border:none; padding:8px 15px; border-radius:8px; font-weight:bold; cursor:pointer;">추가(0)</button>
+            <button onclick="saveSelectedItems()" id="saveBtn" style="background:#4A90E2; color:white; border:none; padding:8px 15px; border-radius:8px; font-weight:bold; cursor:pointer;">추가(0)</button>
         </div>
-
-        <div class="search-container">
-            <input type="text" id="ingSearch" oninput="filterIngredients()" placeholder="재료를 검색하세요 (예: 우유, 사이다)"
-                autocomplete="off">
-        </div>
-
-        <div id="ingredientGrid" class="ingredient-grid">
-        </div>
+        <div class="search-container"><input type="text" id="ingSearch" oninput="filterIngredients()" placeholder="재료 검색" style="width:100%; padding:12px; border-radius:12px; border:1px solid #ddd; outline:none;"></div>
+        <div class="date-container" style="padding: 0 20px 15px; background: #f8f9fa;"><input type="date" id="expiryInput" style="width:100%; padding:10px; border-radius:10px; border:1px solid #ddd; outline:none;"></div>
+        <div id="ingredientGrid" class="ingredient-grid"></div>
     </div>
 
     <script>
         let selectedItems = new Set();
 
-        // 1. 재료 선택 화면 열기
-        async function openAddPage() {
-            document.getElementById('addPage').style.display = 'flex';
-            document.getElementById('ingSearch').value = '';
-            selectedItems.clear();
-            updateSaveBtn();
-            history.pushState({ page: "add" }, "재료 추가", "#add");
+        // 🌟 실시간 날짜 수정 함수 (POST 방식 적용)
+        async function updateItemInline(itemName, element) {
+            const newDate = element.value;
+            if (!newDate) return;
+
+            const url = `/update-item/${encodeURIComponent(itemName)}`;
+            console.log("요청 주소:", url);
 
             try {
-                const response = await fetch('/items/search');
-                const results = await response.json();
-                const grid = document.getElementById('ingredientGrid');
-                grid.innerHTML = results.map(item => `
-            <div class="ing-item" onclick="toggleItem('${item.name}', this)">
-                <span class="ing-icon">📦</span>
-                <div style="font-size:0.9rem; font-weight:500;">${item.name}</div>
-            </div>
-        `).join('');
-            } catch (err) { console.error("재료 로드 실패:", err); }
-        }
+                const response = await fetch(url, {
+                    method: 'POST', // 405 방지를 위해 서버와 맞춘 POST
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ expiry_date: newDate })
+                });
 
-        // 2. 화면 닫기
-        function closeAddPage() {
-            document.getElementById('addPage').style.display = 'none';
-            if (history.state && history.state.page === "add") {
-                history.back();
-            }
-        }
-
-        window.onpopstate = function (event) {
-            const addPage = document.getElementById('addPage');
-            if (addPage.style.display === 'flex') {
-                addPage.style.display = 'none';
-            }
-        };
-
-        // 2. 실시간 필터링 기능
-        function filterIngredients() {
-            const query = document.getElementById('ingSearch').value.toLowerCase();
-            const items = document.querySelectorAll('.ing-item');
-
-            items.forEach(item => {
-                const name = item.innerText.toLowerCase();
-                if (name.includes(query)) {
-                    item.classList.remove('hidden');
+                if (response.ok) {
+                    location.reload(); 
                 } else {
-                    item.classList.add('hidden');
+                    alert("수정 실패 (에러 코드: " + response.status + ")");
                 }
-            });
-        }
-
-        // 3. 재료 선택/해제 (멀티 선택)
-        function toggleItem(name, element) {
-            if (selectedItems.has(name)) {
-                selectedItems.delete(name);
-                element.classList.remove('selected');
-            } else {
-                selectedItems.add(name);
-                element.classList.add('selected');
+            } catch (err) {
+                console.error("네트워크 에러:", err);
             }
-            updateSaveBtn();
         }
 
-        function updateSaveBtn() {
+        async function openAddPage() {
+            document.getElementById('addPage').style.display = 'flex';
+            document.getElementById('expiryInput').value = new Date().toISOString().split('T')[0];
+            const response = await fetch('/items/search');
+            const results = await response.json();
+            document.getElementById('ingredientGrid').innerHTML = results.map(item => `
+                <div class="ing-item" onclick="toggleItem('${item.name}', this)">
+                    <span style="font-size:1.5rem; margin-bottom:5px;">📦</span>
+                    <div style="font-size:0.9rem; font-weight:500;">${item.name}</div>
+                </div>
+            `).join('');
+        }
+
+        function closeAddPage() { document.getElementById('addPage').style.display = 'none'; }
+        
+        function toggleItem(name, el) {
+            if (selectedItems.has(name)) { selectedItems.delete(name); el.classList.remove('selected'); }
+            else { selectedItems.add(name); el.classList.add('selected'); }
             document.getElementById('saveBtn').innerText = `추가(${selectedItems.size})`;
         }
 
-        // 4. 선택된 모든 재료 DB에 저장
         async function saveSelectedItems() {
-            if (selectedItems.size === 0) return;
-
-            const today = new Date();
-            today.setDate(today.getDate() + 7); // 기본 7일 유통기한
-            const expiry = today.toISOString().split('T')[0];
-
-            // 모든 선택된 항목을 한 번에 서버로 전송
-            const promises = Array.from(selectedItems).map(name =>
-                fetch('/items', {
+            const date = document.getElementById('expiryInput').value;
+            for (let name of selectedItems) {
+                await fetch('/items', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: name, category: '냉장', expiry_date: expiry })
-                })
-            );
+                    body: JSON.stringify({ name, category: '냉장', expiry_date: date })
+                });
+            }
+            location.reload();
+        }
 
-            try {
-                await Promise.all(promises);
-                location.reload(); // 저장 후 새로고침하여 메인 목록 갱신
-            } catch (err) {
-                alert("일부 재료 저장에 실패했습니다.");
+        async function deleteItem(name) {
+            if (confirm(`'${name}' 삭제하시겠습니까?`)) {
+                await fetch(`/items/${encodeURIComponent(name)}`, { method: 'DELETE' });
+                location.reload();
             }
         }
 
-        // 기존 삭제 기능 유지
-        async function deleteItem(name) {
-            if (!confirm(`'${name}'을(를) 삭제하시겠습니까?`)) return;
-            const response = await fetch(`/items/${encodeURIComponent(name)}`, { method: 'DELETE' });
-            if (response.ok) location.reload();
-            else alert("삭제 실패!");
+        function filterIngredients() {
+            const query = document.getElementById('ingSearch').value.toLowerCase();
+            document.querySelectorAll('.ing-item').forEach(el => {
+                el.classList.toggle('hidden', !el.innerText.toLowerCase().includes(query));
+            });
         }
     </script>
 </body>
-
 </html>
