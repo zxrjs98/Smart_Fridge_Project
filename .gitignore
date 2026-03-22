@@ -13,3 +13,6 @@ __pycache__/
 # 운영체제 관련 파일
 Thumbs.db
 .DS_Store
+
+# ngrok 실행 파일 제외
+ngrok.exe
