@@ -27,7 +27,20 @@
             -webkit-tap-highlight-color: transparent;
             user-select: none;
             overflow-x: hidden;
-            overscroll-behavior-y: contain;
+            overscroll-behavior-y: none;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* 컨테이너별 독립 스크롤 부여 */
+        #refrigeratorPage,
+        #recipePage {
+            height: 100vh;
+            overflow-y: auto;
+            padding-top: 140px;
+            /* 헤더 높이만큼 확보 필수 */
         }
 
         .app-container {
@@ -479,20 +492,23 @@
 
         /* 레시피 상단 고정 영역 */
         .recipe-sticky-header {
-            position: sticky;
+            position: fixed;
             top: 60px;
-            /* 상단 바 바로 아래 */
-            height: 110px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 600px;
             background: white;
-            z-index: 100;
-            padding: 10px 15px;
-            border-bottom: 1px solid #f1f3f5;
+            z-index: 4000;
+            padding: 10px 16px;
             box-sizing: border-box;
+            border-bottom: 1px solid #f1f3f5;
+            will-change: transform;
         }
 
         /* 리스트는 검색창 높이만큼만 '마이너스 마진' 혹은 '적절한 패딩'으로 조절 */
         #recipeList {
-            padding: 5px 15px 100px 15px !important;
+            padding: 5px 15px 210px 15px !important;
             margin-top: 0 !important;
         }
 
@@ -610,6 +626,29 @@
             animation: slideUp 0.3s ease-out;
         }
 
+        /* 내 냉장고 탭 바 스크롤 숨기기 */
+        #fridgeTabs::-webkit-scrollbar {
+            display: none;
+            /* Chrome, Safari, Opera */
+        }
+
+        #fridgeTabs {
+            -ms-overflow-style: none;
+            /* IE and Edge */
+            scrollbar-width: none;
+            /* Firefox */
+        }
+
+        /* 레시피 탭의 재료 칩 영역도 같이 숨기려면 추가 */
+        #myIngChips::-webkit-scrollbar {
+            display: none;
+        }
+
+        #myIngChips {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
         .detail-body {
             flex: 1;
             overflow-y: auto;
@@ -660,6 +699,72 @@
             font-size: 0.8rem;
             flex-shrink: 0;
         }
+
+        .ing-filter-chip {
+            padding: 6px 14px;
+            border-radius: 18px;
+            background: #f1f3f5;
+            color: #495057;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+            display: inline-block;
+            flex-shrink: 0;
+            /* 칩이 찌그러지지 않게 함 */
+        }
+
+        .ing-filter-chip.active {
+            background: var(--primary-color);
+            color: white;
+            box-shadow: 0 3px 10px rgba(74, 144, 226, 0.3);
+        }
+
+        /* 가로 스크롤바 숨기기 */
+        #myIngChips::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* 탭 버튼 기본 스타일 */
+        .f-tab {
+            padding: 8px 16px;
+            border-radius: 12px;
+            background: white;
+            border: 1px solid #eee;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #7f8c8d;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        /* 활성화된 탭 */
+        .f-tab.active {
+            background: var(--primary-color);
+            color: white !important;
+            border-color: var(--primary-color);
+            box-shadow: 0 4px 10px rgba(74, 144, 226, 0.2);
+        }
+
+        /* 탭 바 스크롤바 숨기기 */
+        .fridge-tab-bar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .count-badge {
+            font-size: 0.7rem;
+            opacity: 0.8;
+            margin-left: 0;
+            font-weight: 500;
+        }
+
+        /* 활성화된 탭에서는 숫자가 더 잘 보이게 */
+        .sort-chip.active .count-badge {
+            opacity: 1;
+            font-weight: 800;
+        }
     </style>
 </head>
 
@@ -670,16 +775,42 @@
         <button class="settings-btn" onclick="openSettings()"><span class="material-icons">settings</span></button>
     </nav>
 
-    <div id="refrigeratorPage" class="app-container">
-        <div id="itemList">
+    <div id="refrigeratorPage" class="app-container" style="padding: 20px 0 !important;">
+        <div class="recipe-sticky-header" style="height: auto; padding: 10px 16px 12px 16px;">
+            <div id="fridgeTabs"
+                style="display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 12px 0; white-space: nowrap; -webkit-overflow-scrolling: touch;">
+                <div class="sort-chip active" onclick="filterFridge('all', this)">전체(<span class="count-badge"
+                        id="count-all">0</span>)</div>
+                <div class="sort-chip" onclick="filterFridge('expired', this)">만료(<span class="count-badge"
+                        id="count-expired">0</span>)</div>
+                <div class="sort-chip" onclick="filterFridge('urgent', this)">임박(<span class="count-badge"
+                        id="count-urgent">0</span>)</div>
+                <div class="sort-chip" onclick="filterFridge('safe', this)">여유(<span class="count-badge"
+                        id="count-safe">0</span>)</div>
+                <div class="sort-chip" onclick="filterFridge('none', this)">미입력(<span class="count-badge"
+                        id="count-none">0</span>)</div>
+            </div>
+
+            <div class="sort-container" style="display: flex; justify-content: flex-end;">
+                <div class="sort-trigger" onclick="toggleFridgeSortMenu()">
+                    <span id="currentFridgeSortText">소비기한순</span>
+                    <span class="material-icons">expand_more</span>
+                </div>
+                <div id="fridgeSortMenu" class="sort-menu" style="right: 0;">
+                    <div onclick="selectFridgeSort('expiry', '소비기한순')">소비기한순</div>
+                    <div onclick="selectFridgeSort('latest', '최근 등록순')">최근 등록순</div>
+                    <div onclick="selectFridgeSort('name', '가나다순')">이름순</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="itemList"
+            style="padding: 155px 16px 160px 16px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
             {% if items %}
             {% for item in items %}
-            <div class="item-card" onclick="triggerDatePicker(event, this)">
-                {% if item.expiry_date and item.d_day is not none %}
-                <div
-                    class="status-dot {% if item.d_day < 0 %}dot-urgent{% elif item.d_day <= 3 %}dot-warning{% else %}dot-normal{% endif %}">
-                </div>
-                {% endif %}
+            <div class="item-card" onclick="triggerDatePicker(event, this)"
+                data-dday="{{ item.d_day if item.d_day is not none else '9999' }}" data-id="{{ loop.index0 }}">
+
                 <div class="info">
                     <strong class="name">{{ item.name }}</strong>
                     <div style="position: relative;">
@@ -694,18 +825,24 @@
                             style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;"
                             onchange="updateDate('{{ item.name }}', this.value)">
                     </div>
+
                     {% if item.expiry_date and item.d_day is not none %}
-                    <div style="font-size: 0.75rem; font-weight: 800; color: var(--primary-color); margin-top: 2px;">
-                        {% if item.d_day < 0 %}<span style="color: var(--urgent-color);">기한 만료 (D+{{ -item.d_day
+                    <div style="font-size: 0.75rem; font-weight: 800; margin-top: 2px;">
+                        {% if item.d_day < 0 %} <span style="color: var(--urgent-color);">기한 만료 (D+{{ -item.d_day
                             }})</span>
-                            {% elif item.d_day == 0 %}D-Day{% else %}D-{{ item.d_day }}{% endif %}
+                            {% elif item.d_day <= 3 %} <span style="color: var(--warning-color);">
+                                {% if item.d_day == 0 %}D-Day{% else %}D-{{ item.d_day }}{% endif %}
+                                </span>
+                                {% else %}
+                                <span style="color: var(--primary-color);">D-{{ item.d_day }}</span>
+                                {% endif %}
                     </div>
                     {% endif %}
                 </div>
             </div>
             {% endfor %}
             {% else %}
-            <div style="text-align: center; color: #bdc3c7; margin-top: 100px;">
+            <div style="text-align: center; color: #bdc3c7; margin-top: 100px; grid-column: span 2;">
                 <p>냉장고가 비어있습니다.</p>
             </div>
             {% endif %}
@@ -713,10 +850,14 @@
     </div>
 
     <div id="recipePage" style="display:none;">
-        <div class="recipe-sticky-header">
+        <div class="recipe-sticky-header" style="height: auto; padding-bottom: 12px;">
             <div class="search-input-wrapper">
                 <span class="material-icons" style="color:#adb5bd; margin-right:8px;">search</span>
                 <input type="text" id="recipeSearch" placeholder="레시피 이름 검색..." oninput="filterRecipes()">
+            </div>
+
+            <div id="myIngChips"
+                style="display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 8px 0; white-space: nowrap; -webkit-overflow-scrolling: touch;">
             </div>
 
             <div class="sort-container">
@@ -731,6 +872,7 @@
                 </div>
             </div>
         </div>
+
 
         <div style="height: 70px; width: 100%;"></div>
 
@@ -825,6 +967,7 @@
         let selectedItems = new Set();
         let itemsToDelete = new Set();
         let currentSortType = 'match';
+        let selectedSearchIngs = new Set();
 
         // 정렬 메뉴 토글
         function toggleSortMenu() {
@@ -842,23 +985,33 @@
 
         // 이름 검색 및 정렬 통합 필터
         function filterRecipes() {
-            // 데이터가 없거나, 검색창이 없는 상태면 실행 안 함
             const searchInput = document.getElementById('recipeSearch');
             if (!allRecipes || allRecipes.length === 0 || !searchInput) return;
 
             const keyword = searchInput.value.toLowerCase();
-
-            // 냉장고에 아이템이 하나도 없을 때를 대비한 안전한 추출
             const nameElements = document.querySelectorAll('#refrigeratorPage .name');
-            const myIngs = nameElements ? Array.from(nameElements).map(el => el.innerText.trim()) : [];
+            const myIngs = Array.from(nameElements).map(el => el.innerText.trim());
 
-            let filtered = allRecipes.filter(r => r.name.toLowerCase().includes(keyword));
+            let filtered = allRecipes.filter(recipe => {
+                // 1. 이름 검색 매칭 여부
+                const matchesName = recipe.name.toLowerCase().includes(keyword);
 
+                // 2. 선택된 칩 재료가 모두 포함되어 있는지 확인 (AND 필터링)
+                const matchesSelectedIngs = Array.from(selectedSearchIngs).every(selected =>
+                    recipe.ingredients.includes(selected)
+                );
+
+                return matchesName && matchesSelectedIngs;
+            });
+
+            // 3. 정렬 적용
             filtered.sort((a, b) => {
                 const rA = a.ingredients.filter(i => myIngs.includes(i)).length / a.ingredients.length;
                 const rB = b.ingredients.filter(i => myIngs.includes(i)).length / b.ingredients.length;
+
                 if (currentSortType === 'match') return rB - rA;
-                return currentSortType === 'max' ? b.ingredients.length - a.ingredients.length : a.ingredients.length - b.ingredients.length;
+                if (currentSortType === 'max') return b.ingredients.length - a.ingredients.length;
+                return a.ingredients.length - b.ingredients.length;
             });
 
             renderRecipeList(filtered, 'recipeList');
@@ -1098,9 +1251,10 @@
             } else if (tabName === 'recipes') {
                 titleEl.innerText = "모든 레시피";
                 document.getElementById('recipePage').style.display = 'block';
-                if (fab) fab.style.display = 'none'; // 레시피 탭에서는 FAB 숨김
-                filterRecipes(); // 저장된 데이터로 즉시 렌더링
+                if (fab) fab.style.display = 'none';
 
+                renderMyIngChips();
+                filterRecipes();
             } else if (tabName === 'favorites') {
                 titleEl.innerText = "즐겨찾기";
                 document.getElementById('favoritePage').style.display = 'block';
@@ -1284,6 +1438,195 @@
             });
             location.reload();
         }
+
+        // 내 재료 칩 렌더링 함수
+        function renderMyIngChips() {
+            const chipContainer = document.getElementById('myIngChips');
+            if (!chipContainer) return;
+
+            const nameElements = document.querySelectorAll('#refrigeratorPage .name');
+            const myIngs = Array.from(nameElements).map(el => el.innerText.trim());
+
+            if (myIngs.length === 0) {
+                chipContainer.innerHTML = '<span style="font-size:0.7rem; color:#adb5bd;">냉장고가 비어있습니다.</span>';
+                return;
+            }
+
+            chipContainer.innerHTML = myIngs.map(name => `
+        <div class="ing-filter-chip ${selectedSearchIngs.has(name) ? 'active' : ''}" 
+             onclick="toggleIngFilter('${name}', this)">
+            ${name}
+        </div>
+    `).join('');
+        }
+
+        // 칩 클릭 시 상태 토글
+        function toggleIngFilter(name, el) {
+            if (selectedSearchIngs.has(name)) {
+                selectedSearchIngs.delete(name);
+                el.classList.remove('active');
+            } else {
+                selectedSearchIngs.add(name);
+                el.classList.add('active');
+            }
+            filterRecipes(); // 즉시 레시피 리스트 갱신
+        }
+        function sortFridgeItems() {
+            const container = document.getElementById('itemList');
+            const sortType = document.getElementById('fridgeSortSelect').value;
+            const cards = Array.from(container.getElementsByClassName('item-card'));
+
+            if (cards.length === 0) return;
+
+            cards.sort((a, b) => {
+                if (sortType === 'expiry') {
+                    // 1. 소비기한순 (숫자 오름차순)
+                    return parseInt(a.getAttribute('data-dday')) - parseInt(b.getAttribute('data-dday'));
+                }
+                else if (sortType === 'latest') {
+                    // 2. 최근 등록순 (인덱스 내림차순)
+                    return parseInt(b.getAttribute('data-id')) - parseInt(a.getAttribute('id'));
+                }
+                else if (sortType === 'name') {
+                    // 3. 가나다순
+                    const nameA = a.querySelector('.name').innerText.trim();
+                    const nameB = b.querySelector('.name').innerText.trim();
+                    return nameA.localeCompare(nameB, 'ko');
+                }
+            });
+
+            // 정렬된 카드를 DOM에 다시 붙임 (appendChild는 기존 요소를 이동시킴)
+            cards.forEach(card => container.appendChild(card));
+        }
+        function filterFridge(type, btn) {
+            // 1. 모든 탭 버튼의 active 클래스 제거 및 클릭된 버튼에 추가
+            document.querySelectorAll('.f-tab').forEach(tab => tab.classList.remove('active'));
+            btn.classList.add('active');
+
+            const cards = document.querySelectorAll('#itemList .item-card');
+
+            cards.forEach(card => {
+                const ddayRaw = card.getAttribute('data-dday');
+                const dday = parseInt(ddayRaw);
+
+                let isVisible = false;
+
+                switch (type) {
+                    case 'all':
+                        isVisible = true;
+                        break;
+                    case 'expired':
+                        // 지남: D-Day가 0보다 작은 경우 (D+1, D+2...)
+                        isVisible = (dday < 0);
+                        break;
+                    case 'urgent':
+                        // 임박: 0일(D-Day)부터 3일 남은 경우
+                        isVisible = (dday >= 0 && dday <= 3);
+                        break;
+                    case 'safe':
+                        // 여유: 4일 이상 남은 경우 (9999 제외)
+                        isVisible = (dday > 3 && dday < 9999);
+                        break;
+                    case 'none':
+                        // 미입력: dday가 9999인 경우
+                        isVisible = (dday === 9999);
+                        break;
+                }
+
+                // 조건에 맞으면 보이고 아니면 숨김
+                card.style.display = isVisible ? 'flex' : 'none';
+            });
+        }
+        // 1. 냉장고 정렬 메뉴 토글
+        function toggleFridgeSortMenu() {
+            const menu = document.getElementById('fridgeSortMenu');
+            menu.style.display = (menu.style.display === 'flex') ? 'none' : 'flex';
+        }
+
+        // 2. 냉장고 정렬 방식 선택 및 실행
+        function selectFridgeSort(type, text) {
+            document.getElementById('currentFridgeSortText').innerText = text;
+            document.getElementById('fridgeSortMenu').style.display = 'none';
+
+            const container = document.getElementById('itemList');
+            const cards = Array.from(container.getElementsByClassName('item-card'));
+
+            cards.sort((a, b) => {
+                if (type === 'expiry') {
+                    return parseInt(a.getAttribute('data-dday')) - parseInt(b.getAttribute('data-dday'));
+                } else if (type === 'latest') {
+                    return parseInt(b.getAttribute('data-id')) - parseInt(a.getAttribute('data-id'));
+                } else if (type === 'name') {
+                    const nameA = a.querySelector('.name').innerText.trim();
+                    const nameB = b.querySelector('.name').innerText.trim();
+                    return nameA.localeCompare(nameB, 'ko');
+                }
+            });
+
+            cards.forEach(card => container.appendChild(card));
+        }
+
+        // 3. 5단 탭 필터링 로직
+        function filterFridge(type, el) {
+            // 탭 스타일 변경
+            document.querySelectorAll('#fridgeTabs .sort-chip').forEach(c => c.classList.remove('active'));
+            el.classList.add('active');
+
+            const cards = document.querySelectorAll('#itemList .item-card');
+
+            cards.forEach(card => {
+                const dday = parseInt(card.getAttribute('data-dday'));
+                let isVisible = false;
+
+                switch (type) {
+                    case 'all': isVisible = true; break;
+                    case 'expired': isVisible = (dday < 0); break;
+                    case 'urgent': isVisible = (dday >= 0 && dday <= 3); break;
+                    case 'safe': isVisible = (dday > 3 && dday < 9999); break;
+                    case 'none': isVisible = (dday === 9999); break;
+                }
+                card.style.display = isVisible ? 'flex' : 'none';
+            });
+        }
+        // 기존 스크립트에 추가
+        window.addEventListener('click', function (e) {
+            const fridgeMenu = document.getElementById('fridgeSortMenu');
+            const fridgeTrigger = document.querySelector('.sort-trigger');
+
+            if (fridgeMenu && !fridgeTrigger.contains(e.target) && !fridgeMenu.contains(e.target)) {
+                fridgeMenu.style.display = 'none';
+            }
+        });
+
+        function updateTabCounts() {
+            const cards = document.querySelectorAll('#itemList .item-card');
+            let counts = { all: 0, expired: 0, urgent: 0, safe: 0, none: 0 };
+
+            cards.forEach(card => {
+                const dday = parseInt(card.getAttribute('data-dday'));
+                counts.all++;
+
+                if (dday < 0) {
+                    counts.expired++;
+                } else if (dday >= 0 && dday <= 3) {
+                    counts.urgent++;
+                } else if (dday > 3 && dday < 9999) {
+                    counts.safe++;
+                } else if (dday === 9999) {
+                    counts.none++;
+                }
+            });
+
+            // 화면에 숫자 반영
+            document.getElementById('count-all').innerText = counts.all;
+            document.getElementById('count-expired').innerText = counts.expired;
+            document.getElementById('count-urgent').innerText = counts.urgent;
+            document.getElementById('count-safe').innerText = counts.safe;
+            document.getElementById('count-none').innerText = counts.none;
+        }
+
+        // 페이지 로드 시 최초 1회 실행
+        document.addEventListener('DOMContentLoaded', updateTabCounts);
     </script>
 </body>
 
