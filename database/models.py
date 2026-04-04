@@ -3,7 +3,8 @@ from sqlalchemy import Column, Integer, String, Date, Boolean, Text, ForeignKey
 from sqlalchemy.orm import relationship
 from .connection import Base
 
-# User 테이블
+
+#User 테이블
 class User(Base):
     __tablename__ = "users"
 
@@ -11,8 +12,7 @@ class User(Base):
     username = Column(String(50), unique=True, index=True)
     hashed_password = Column(String(100))
     items = relationship("Item", back_populates="owner")
-    
-    email = Column(String(255), unique=True, index=True, nullable=True)
+    email = Column(String, unique=True, index=True, nullable=True)
 
 # 실제 재료 테이블
 class Item(Base):
@@ -21,7 +21,7 @@ class Item(Base):
     id = Column(Integer, primary_key=True, index=True) # id 
     name = Column(String(100), nullable=False) # 재료명
     expiry_date = Column(Date, index=True) #소비기한
-    user_id = Column(Integer, ForeignKey("users.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))# 핵심! 주인의 ID표
     owner = relationship("User", back_populates="items")
     
     @property
@@ -38,6 +38,7 @@ class MasterIngredient(Base):
     name = Column(String(50), unique=True, nullable=False) # 재료명
     is_seasoning = Column(Boolean, default=False) # 기본 양념 제외 필터용
 
+
 class Recipe(Base):
     __tablename__ = "recipes"
     recipe_id = Column(Integer, primary_key=True, index=True) # recipe_id
@@ -52,8 +53,10 @@ class RecipeIngredient(Base):
     recipe_id = Column(Integer, nullable=False) # Recipe.recipe_id와 매칭
     ingredient_name = Column(String(100), nullable=False)
 
+
 class Favorite(Base):
     __tablename__ = "favorites"
 
     user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
     recipe_id = Column(Integer, ForeignKey("recipes.recipe_id"), primary_key=True)
+    
