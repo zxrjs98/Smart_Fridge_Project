@@ -4,6 +4,7 @@ pymysql
 pydantic
 jinja2
 <<<<<<< HEAD
+<<<<<<< HEAD
 python-multipart
 SQLAlchemy
 python-dotenv
@@ -12,3 +13,11 @@ python-jose
 =======
 python-multipart
 >>>>>>> 86b8b6b4b61143358136c917925b6b81ee6a5c28
+=======
+python-multipart
+flask
+flet
+requests
+pymysql
+python-dotenv
+>>>>>>> Sanghyun
