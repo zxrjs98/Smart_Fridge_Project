@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreshKeep - 회원가입</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f4f7f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .register-container { background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 400px; text-align: center; }
+        .logo { color: #4a90e2; font-size: 2rem; font-weight: bold; margin-bottom: 1.5rem; }
+        
+        .input-group { position: relative; margin-top: 1rem; }
+        .input-group i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #999; }
+        .input-group input { width: 100%; padding: 12px 15px 12px 45px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; outline: none; transition: border-color 0.3s; }
+        .input-group input:focus { border-color: #4a90e2; }
+        
+        .field-error { color: #e74c3c; font-size: 0.8rem; text-align: left; padding-left: 5px; margin-top: 5px; font-weight: bold; display: block; min-height: 15px; }
+        
+        .register-btn { width: 100%; padding: 12px; background-color: #4a90e2; border: none; color: white; border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 1rem; }
+        .footer-links { margin-top: 1.5rem; font-size: 0.9rem; color: #666; }
+        .footer-links a { color: #4a90e2; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="register-container">
+        <div class="logo"><i class="fas fa-user-plus"></i> 회원가입</div>
+        <form id="registerForm" action="/register" method="post" autocomplete="off">
+            
+            <div class="input-group">
+                <i class="fas fa-user"></i>
+                <input type="text" id="username" name="username" placeholder="사용할 아이디 (6~12자)" value="{{ username | default('') }}" required autocomplete="off">
+            </div>
+            <span id="username_error" class="field-error">
+                {% if errors and errors.username_error %}<i class="fas fa-exclamation-circle"></i> {{ errors.username_error }}{% endif %}
+            </span>
+
+            <div class="input-group">
+                <i class="fas fa-lock"></i>
+                <input type="password" id="password" name="password" placeholder="비밀번호" required autocomplete="new-password">
+            </div>
+            <span id="password_error" class="field-error">
+                {% if errors and errors.password_error %}<i class="fas fa-exclamation-circle"></i> {{ errors.password_error }}{% endif %}
+            </span>
+            
+            <div class="input-group">
+                <i class="fas fa-check-double"></i>
+                <input type="password" id="password_confirm" name="password_confirm" placeholder="비밀번호 확인" required autocomplete="new-password">
+            </div>
+            <span id="confirm_error" class="field-error">
+                {% if errors and errors.confirm_error %}<i class="fas fa-exclamation-circle"></i> {{ errors.confirm_error }}{% endif %}
+            </span>
+
+            <div class="input-group">
+                <i class="fas fa-envelope"></i>
+                <input type="email" name="email" placeholder="이메일 (example@gmail.com)" value="{{ email }}" oninput="let msg = document.getElementById('email_error_msg'); if(msg) msg.style.display='none';">
+            </div>
+            
+            {% if errors and errors.email_error %}
+                <div id="email_error_msg" style="color: #dc3545; font-size: 13px; font-weight: bold; margin-top: 5px; margin-bottom: 15px; text-align: left; padding-left: 10px;">
+                    <i class="fas fa-exclamation-circle"></i> {{ errors.email_error }}
+                </div>
+            {% endif %}
+
+            <button type="submit" class="register-btn">가입하기</button>
+        </form>
+        <div class="footer-links">
+            이미 계정이 있으신가요? <a href="/">로그인하러 가기</a>
+        </div>
+    </div>
+
+    <script>
+        // 1. 아이디 6~12자 검사 (입력창에서 포커스가 벗어날 때)
+        document.getElementById('username').addEventListener('blur', function() {
+            const val = this.value;
+            const errorSpan = document.getElementById('username_error');
+            if (val.length > 0 && (val.length < 6 || val.length > 12)) {
+                errorSpan.innerHTML = '<i class="fas fa-exclamation-circle"></i> 아이디는 6~12자로 입력해주세요.';
+            } else {
+                // 조건에 맞으면 에러 메시지 지우기
+                if(!`{{ errors and errors.username_error }}`) {
+                    errorSpan.innerHTML = '';
+                }
+            }
+        });
+
+        // 2. 비밀번호 일치 검사 (비밀번호 확인 창에 입력할 때마다 실시간으로)
+        document.getElementById('password_confirm').addEventListener('keyup', function() {
+            const pwd = document.getElementById('password').value;
+            const pwdConfirm = this.value;
+            const errorSpan = document.getElementById('confirm_error');
+            
+            if (pwdConfirm.length > 0 && pwd !== pwdConfirm) {
+                errorSpan.innerHTML = '<i class="fas fa-exclamation-circle"></i> 비밀번호가 일치하지 않습니다.';
+            } else {
+                errorSpan.innerHTML = '';
+            }
+        });
+
+        // 3. 폼 제출 전 최종 검사 (버튼 눌렀을 때)
+        document.getElementById('registerForm').addEventListener('submit', function(e) {
+            const username = document.getElementById('username').value;
+            const pwd = document.getElementById('password').value;
+            const pwdConfirm = document.getElementById('password_confirm').value;
+            
+            // 아이디 길이 재검사
+            if (username.length < 6 || username.length > 12) {
+                e.preventDefault(); // 폼 제출 막기
+                document.getElementById('username_error').innerHTML = '<i class="fas fa-exclamation-circle"></i> 아이디는 6~12자로 입력해주세요.';
+                document.getElementById('username').focus();
+                return;
+            }
+
+            // 비밀번호 일치 재검사
+            if (pwd !== pwdConfirm) {
+                e.preventDefault(); // 폼 제출 막기
+                document.getElementById('confirm_error').innerHTML = '<i class="fas fa-exclamation-circle"></i> 비밀번호가 일치하지 않습니다.';
+                document.getElementById('password_confirm').focus();
+                return;
+            }
+        });
+
+        // 이메일 칸에 글자를 입력할 때마다 실시간으로 형식을 검사합니다.
+        const emailInput = document.getElementById('email');
+        const emailErrorMsg = document.getElementById('email_error_msg');
+
+        emailInput.addEventListener('input', function() {
+            const emailValue = this.value;
+            // 이메일 형식을 검사하는 마법의 정규식 코드
+            const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+
+            // 빈칸이 아닌데 형식이 틀렸다면? -> 빨간 글씨 켜기!
+            if (emailValue.length > 0 && !emailRegex.test(emailValue)) {
+                emailErrorMsg.style.display = 'block';
+            } 
+            // 형식이 맞거나 다 지웠다면? -> 빨간 글씨 끄기!
+            else {
+                emailErrorMsg.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
