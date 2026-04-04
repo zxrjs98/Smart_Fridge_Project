@@ -46,7 +46,11 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # ---------------------------------------------------------
 @app.get("/")
 def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse(
+        request=request, 
+        name="login.html", 
+        context={}
+    )
 
 @app.post("/login")
 def login_user(
@@ -59,9 +63,10 @@ def login_user(
     
     if not user or not verify_password(password, user.hashed_password):
         return templates.TemplateResponse(
+            request=request, 
             name="login.html", 
-            context={"request": request, "error": "아이디나 비밀번호가 틀렸습니다."}
-        )
+            context={"error": "아이디나 비밀번호가 틀렸습니다."}
+    )
     
     response = RedirectResponse(url="/main", status_code=303)
     response.set_cookie(key="user_id", value=str(user.id))
@@ -131,28 +136,37 @@ def register_user(
 # ---------------------------------------------------------
 # 메인 페이지 (내 냉장고 목록)
 # ---------------------------------------------------------
+# ---------------------------------------------------------
+# 2. 메인 페이지 (내 냉장고 목록) - 전체 코드
+# ---------------------------------------------------------
 @app.get("/main")
-def main_page(request: Request, db: Session = Depends(get_db), current_user: models.User = Depends(get_optional_user_id)):
-    if not current_user or str(current_user) == "None" or str(current_user) == "":
+def main_page(
+    request: Request, 
+    db: Session = Depends(get_db), 
+    current_user: Optional[int] = Depends(get_optional_user_id)
+):
+    # 1. 로그인 체크: 유저 아이디가 없으면 로그인 페이지로 튕깁니다.
+    if not current_user:
         return RedirectResponse(url="/", status_code=303)
     
     try:
+        # 2. DB에서 해당 유저의 아이템들 가져오기
+        # (주의: models.Item 혹은 models.RecipeIngredient 중 상현님의 모델명에 맞게 확인!)
         items = db.query(models.Item).filter(
             models.Item.user_id == current_user
         ).order_by(
-            models.Item.expiry_date.is_(None), 
-            models.Item.expiry_date.asc()      
+            models.Item.expiry_date.asc()
         ).all()
 
+        # 3. D-Day 계산 로직
         today = datetime.now().date()
         processed_items = []
+        
         for item in items:
             d_day = None
             if item.expiry_date:
-                expiry = item.expiry_date
-                if isinstance(expiry, str):
-                    expiry = datetime.strptime(expiry, '%Y-%m-%d').date()
-                d_day = (expiry - today).days
+                # 데이터베이스의 날짜와 오늘 날짜의 차이를 구합니다.
+                d_day = (item.expiry_date - today).days
             
             processed_items.append({
                 "id": item.id,
@@ -161,15 +175,28 @@ def main_page(request: Request, db: Session = Depends(get_db), current_user: mod
                 "d_day": d_day
             })
         
-        response = templates.TemplateResponse("index.html", {"request": request, "items": processed_items})
-        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-        return response
+        # 4. 템플릿 응답 (중요: request=request를 반드시 첫 번째 인자로!)
+        # context 안에 모든 데이터를 담아서 보냅니다.
+        return templates.TemplateResponse(
+            request=request, 
+            name="index.html", 
+            context={
+                "items": processed_items,
+                "current_user": current_user
+            }
+        )
 
     except Exception as e:
-        print(f"메인 페이지 로드 에러: {e}")
-        response = templates.TemplateResponse("index.html", {"request": request, "items": [], "error": str(e)})
-        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-        return response
+        # 에러 발생 시 로그 출력 및 빈 목록 반환
+        print(f"메인 페이지 로드 중 에러 발생: {e}")
+        return templates.TemplateResponse(
+            request=request, 
+            name="index.html", 
+            context={
+                "items": [], 
+                "error": "데이터를 불러오는 중 문제가 발생했습니다."
+            }
+        )
 
 # ---------------------------------------------------------
 # 재료 추가, 수정, 삭제
