@@ -183,7 +183,7 @@ def search_ingredients(q: str = "", db: Session = Depends(get_db)):
     return [{"name": r.name, "is_seasoning": r.is_seasoning} for r in results]
 
 @app.post("/items")
-async def create_item(request: Request, db: Session = Depends(get_db),current_user: models.User = Depends(get_current_user_id)):
+async def create_item(request: Request, db: Session = Depends(get_db), current_user = Depends(get_current_user_id)):
     try:
         data = await request.json()
         expiry_str = data.get('expiry_date')
@@ -194,16 +194,22 @@ async def create_item(request: Request, db: Session = Depends(get_db),current_us
             except ValueError:
                 expiry = None 
         
+
+        actual_user_id = current_user.id if hasattr(current_user, 'id') else int(current_user)
+        
         new_item = models.Item(
             name=data['name'], 
             expiry_date=expiry,
-            user_id=current_user 
+            user_id=actual_user_id
         )
         db.add(new_item)
         db.commit()
         return {"message": "success"}
+        
     except Exception as e:
         db.rollback()
+        import traceback
+        traceback.print_exc() 
         raise HTTPException(status_code=500, detail="저장 실패")
 
 @app.post("/update-item/{item_name}")
