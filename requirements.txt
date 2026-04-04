@@ -3,8 +3,12 @@ uvicorn
 pymysql
 pydantic
 jinja2
+<<<<<<< HEAD
 python-multipart
 SQLAlchemy
 python-dotenv
 passlib[bcrypt]
 python-jose
+=======
+python-multipart
+>>>>>>> 86b8b6b4b61143358136c917925b6b81ee6a5c28
