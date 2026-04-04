@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>FreshKeep</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', path='images/fresh.png') }}">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+    <style>
+        :root {
+            --primary-color: #4A90E2;
+            --urgent-color: #ff4d4d;
+            --warning-color: #ffa500;
+            --bg-color: #f5f7fa;
+            --card-bg: #ffffff;
+            --text-main: #2c3e50;
+            --text-sub: #95a5a6;
+        }
+
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            overflow-x: hidden;
+            overscroll-behavior-y: contain;
+        }
+
+        .app-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            padding-top: 80px !important;
+            padding-bottom: 120px !important;
+        }
+
+        /* 상단 고정 헤더 */
+        .top-nav {
+            position: fixed;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 600px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            box-sizing: border-box;
+            z-index: 4500;
+            border-bottom: 1px solid #f1f3f5;
+        }
+
+        .top-nav .page-title {
+            font-size: 1.3rem;
+            font-weight: 900;
+            color: var(--text-main);
+        }
+
+        .top-nav .settings-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            color: var(--text-main);
+        }
+
+        /* 카드 그리드 */
+        #itemList,
+        #deleteListGrid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            align-content: start;
+        }
+
+        .item-card {
+            position: relative;
+            background: white;
+            border-radius: 15px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            border: 1px solid #f1f3f5;
+            transition: all 0.2s;
+            min-height: 115px;
+            height: auto;
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+
+        .item-card.selected {
+            border: 2px solid var(--urgent-color) !important;
+            background: #fff5f5 !important;
+            transform: scale(0.96);
+        }
+
+        .status-dot {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+        }
+
+        .dot-urgent {
+            background-color: var(--urgent-color);
+        }
+
+        .dot-warning {
+            background-color: var(--warning-color);
+        }
+
+        .dot-normal {
+            background-color: var(--primary-color);
+        }
+
+        .info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            pointer-events: none;
+        }
+
+        .info .name {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .info .expiry-text {
+            font-size: 0.8rem;
+            color: var(--text-sub);
+        }
+
+        /* 레시피 정렬 바 */
+        .sort-bar {
+            display: flex;
+            gap: 8px;
+            padding: 5px 0 15px 0;
+            overflow-x: auto;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .sort-bar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .sort-chip {
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: #fff;
+            border: 1px solid #eee;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-sub);
+            cursor: pointer;
+        }
+
+        .sort-chip.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        /* 레시피 카드 */
+        .recipe-img {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 18px;
+            margin-right: 15px;
+        }
+
+        .recipe-content {
+            flex: 1;
+            padding: 15px 15px 15px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .fav-btn {
+            color: #ddd;
+            cursor: pointer;
+            font-size: 24px;
+            transition: color 0.2s;
+        }
+
+        .fav-btn.active {
+            color: #f1c40f;
+        }
+
+        .ing-status-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .ing-chip {
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .ing-have {
+            background: #eef6ff;
+            color: var(--primary-color);
+        }
+
+        .ing-lack {
+            background: #f1f3f5;
+            color: #adb5bd;
+        }
+
+        /* 하단 네비게이션 */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 600px;
+            height: 70px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.05);
+            z-index: 4000;
+            border-top: 1px solid #f1f3f5;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            color: #adb5bd;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .nav-item.active {
+            color: var(--primary-color);
+        }
+
+        .nav-item .material-icons {
+            font-size: 24px;
+            margin-bottom: 2px;
+        }
+
+        /* 모달 및 기타 */
+        #addPage,
+        #deletePage {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 50% !important;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 600px;
+            height: 100%;
+            background: white;
+            z-index: 5000;
+            flex-direction: column;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .modal-header {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            height: 65px;
+            border-bottom: 1px solid #f1f3f5;
+        }
+
+        .modal-header h3 {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        .modal-header button {
+            position: relative;
+            z-index: 10;
+            cursor: pointer;
+            background: none;
+            border: none;
+            font-size: 1.6rem;
+        }
+
+        .select-all-bar {
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8f9fa;
+            border-bottom: 1px solid #edf2f7;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .search-box {
+            padding: 20px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 15px;
+            border-radius: 12px;
+            border: 2px solid #edf2f7;
+            background-color: #f8fafc;
+            font-size: 1rem;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        .ingredient-grid {
+            flex: 1;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            padding: 20px;
+            align-content: start;
+        }
+
+        .ing-item {
+            padding: 20px 10px;
+            border: 2px solid #f1f3f5;
+            border-radius: 15px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .ing-item.selected {
+            border-color: var(--primary-color);
+            background: #eef6ff;
+            color: var(--primary-color);
+        }
+
+        .ing-item.disabled {
+            background-color: #f1f3f5;
+            color: #adb5bd;
+            opacity: 0.6;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .selected-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+            max-height: 90px;
+            overflow-y: auto;
+            padding: 4px;
+        }
+
+        .chip {
+            background: #eef6ff;
+            color: var(--primary-color);
+            padding: 8px 16px;
+            border-radius: 25px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1.5px solid #d0e3ff;
+        }
+
+        .selection-footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: white;
+            padding: 20px;
+            box-shadow: 0 -10px 25px rgba(0, 0, 0, 0.08);
+            box-sizing: border-box;
+            z-index: 100;
+        }
+
+        .main-action-btn {
+            width: 100%;
+            height: 56px;
+            border-radius: 15px;
+            border: none;
+            font-size: 1.1rem;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        #saveBtn {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        #delConfirmBtn {
+            background: linear-gradient(135deg, #ff4d4d, #f53b57) !important;
+            color: white !important;
+        }
+
+        .fab-group {
+            position: fixed;
+            bottom: 85px;
+            right: 20px;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .fab-button {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            font-size: 2rem;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(74, 144, 226, 0.3);
+        }
+
+        .fab-submenu {
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .fab-submenu button {
+            background: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 30px;
+            font-weight: 700;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translate(-50%, 100%);
+            }
+
+            to {
+                transform: translate(-50%, 0);
+            }
+        }
+
+        /* 레시피 상단 고정 영역 */
+        .recipe-sticky-header {
+            position: sticky;
+            top: 60px;
+            /* 상단 바 바로 아래 */
+            height: 110px;
+            background: white;
+            z-index: 100;
+            padding: 10px 15px;
+            border-bottom: 1px solid #f1f3f5;
+            box-sizing: border-box;
+        }
+
+        /* 리스트는 검색창 높이만큼만 '마이너스 마진' 혹은 '적절한 패딩'으로 조절 */
+        #recipeList {
+            padding: 5px 15px 100px 15px !important;
+            margin-top: 0 !important;
+        }
+
+        /* 검색창 배경색을 상단 바와 대비되게 살짝 조정 */
+        .search-input-wrapper {
+            display: flex;
+            align-items: center;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 10px 15px;
+            margin-bottom: 8px;
+        }
+
+        .search-input-wrapper input {
+            border: none;
+            background: none;
+            outline: none;
+            flex: 1;
+            font-size: 0.95rem;
+        }
+
+        /* 정렬 메뉴 스타일 */
+        .sort-container {
+            display: flex;
+            justify-content: flex-end;
+            position: relative;
+        }
+
+        .sort-trigger {
+            display: flex;
+            align-items: center;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-main);
+            cursor: pointer;
+        }
+
+        .sort-menu {
+            position: absolute;
+            top: 30px;
+            right: 0;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            display: none;
+            flex-direction: column;
+            min-width: 130px;
+            z-index: 110;
+            overflow: hidden;
+        }
+
+        .sort-menu div {
+            padding: 12px 15px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            border-bottom: 1px solid #f8f9fa;
+        }
+
+        .sort-menu div:hover {
+            background: #f8f9fa;
+        }
+
+        /* 레시피 카드 */
+        .recipe-card {
+            background: white;
+            border-radius: 18px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            border: 1px solid #f8f9fa;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .recipe-img {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 18px;
+            margin: 10px;
+        }
+
+        .recipe-content {
+            flex: 1;
+            padding: 15px 15px 15px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .match-rate {
+            display: inline-block;
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: var(--primary-color);
+            background: #eef6ff;
+            padding: 4px 10px;
+            border-radius: 8px;
+            line-height: 1;
+        }
+
+        /* 레시피 상세 모달 스타일 */
+        #recipeDetailModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 600px;
+            height: 100%;
+            background: white;
+            z-index: 6000;
+            flex-direction: column;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .detail-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .detail-img {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+            border-radius: 20px;
+            margin-bottom: 20px;
+        }
+
+        .detail-section {
+            margin-bottom: 25px;
+        }
+
+        .detail-section h4 {
+            font-size: 1.1rem;
+            color: var(--text-main);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .step-item {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            line-height: 1.8;
+            color: #4a4a4a;
+            align-items: flex-start;
+        }
+
+        .step-num {
+            background: var(--bg-color);
+            color: var(--primary-color);
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.8rem;
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="top-nav">
+        <div class="page-title" id="topTitle">내 냉장고</div>
+        <button class="settings-btn" onclick="openSettings()"><span class="material-icons">settings</span></button>
+    </nav>
+
+    <div id="refrigeratorPage" class="app-container">
+        <div id="itemList">
+            {% if items %}
+            {% for item in items %}
+            <div class="item-card" onclick="triggerDatePicker(event, this)">
+                {% if item.expiry_date and item.d_day is not none %}
+                <div
+                    class="status-dot {% if item.d_day < 0 %}dot-urgent{% elif item.d_day <= 3 %}dot-warning{% else %}dot-normal{% endif %}">
+                </div>
+                {% endif %}
+                <div class="info">
+                    <strong class="name">{{ item.name }}</strong>
+                    <div style="position: relative;">
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <span class="material-icons"
+                                style="font-size: 14px; color: var(--text-sub);">calendar_month</span>
+                            <span class="expiry-text">
+                                {% if item.expiry_date %}{{item.expiry_date}}{% else %}소비기한 입력 전{% endif %}
+                            </span>
+                        </div>
+                        <input type="date" value="{{ item.expiry_date if item.expiry_date else '' }}"
+                            style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;"
+                            onchange="updateDate('{{ item.name }}', this.value)">
+                    </div>
+                    {% if item.expiry_date and item.d_day is not none %}
+                    <div style="font-size: 0.75rem; font-weight: 800; color: var(--primary-color); margin-top: 2px;">
+                        {% if item.d_day < 0 %}<span style="color: var(--urgent-color);">기한 만료 (D+{{ -item.d_day
+                            }})</span>
+                            {% elif item.d_day == 0 %}D-Day{% else %}D-{{ item.d_day }}{% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div style="text-align: center; color: #bdc3c7; margin-top: 100px;">
+                <p>냉장고가 비어있습니다.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div id="recipePage" style="display:none;">
+        <div class="recipe-sticky-header">
+            <div class="search-input-wrapper">
+                <span class="material-icons" style="color:#adb5bd; margin-right:8px;">search</span>
+                <input type="text" id="recipeSearch" placeholder="레시피 이름 검색..." oninput="filterRecipes()">
+            </div>
+
+            <div class="sort-container">
+                <div class="sort-trigger" onclick="toggleSortMenu()">
+                    <span id="currentSortText">보유율 높은 순</span>
+                    <span class="material-icons">expand_more</span>
+                </div>
+                <div id="sortMenu" class="sort-menu">
+                    <div onclick="selectSort('match', '보유율 높은 순')">보유율 높은 순</div>
+                    <div onclick="selectSort('min', '필요재료 적은 순')">필요 재료 적은 순</div>
+                    <div onclick="selectSort('max', '필요재료 많은 순')">필요 재료 많은 순</div>
+                </div>
+            </div>
+        </div>
+
+        <div style="height: 70px; width: 100%;"></div>
+
+        <div id="recipeList"></div>
+    </div>
+
+    <div id="favoritePage" style="display:none;" class="app-container">
+        <div id="favoriteList"></div>
+    </div>
+
+    <nav class="bottom-nav">
+        <div class="nav-item active" onclick="switchTab('refrigerator', this)"><i
+                class="material-icons">kitchen</i><span>내 냉장고</span></div>
+        <div class="nav-item" onclick="switchTab('recipes', this)"><i class="material-icons">menu_book</i><span>모든
+                레시피</span></div>
+        <div class="nav-item" onclick="switchTab('favorites', this)"><i class="material-icons">star</i><span>즐겨찾기</span>
+        </div>
+    </nav>
+
+    <div class="fab-group" id="mainFab">
+        <div id="fabSubMenu" class="fab-submenu">
+            <button onclick="openAddPage()" style="display: flex; align-items: center; gap: 8px;">
+                <span class="material-icons" style="font-size: 18px; color: var(--primary-color);">add</span>
+                재료 추가
+            </button>
+
+            <button onclick="openDeletePage()" style="display: flex; align-items: center; gap: 8px; color: #e74c3c;">
+                <span class="material-icons" style="font-size: 18px; color: #e74c3c;">remove</span>
+                재료 삭제
+            </button>
+        </div>
+        <button class="fab-button" onclick="toggleFabMenu()">+</button>
+    </div>
+
+    <div id="addPage">
+        <div class="modal-header"><button onclick="closeAddPage()">✕</button>
+            <h3>재료 추가</h3>
+            <div style="width:40px;"></div>
+        </div>
+        <div class="search-box"><input type="text" id="ingSearch" placeholder="무엇을 넣을까요?" oninput="searchIng()"></div>
+        <div id="ingredientGrid" class="ingredient-grid" style="padding-bottom: 180px;"></div>
+        <div class="selection-footer">
+            <div id="selectedChips" class="selected-chips"></div><button class="main-action-btn" id="saveBtn"
+                onclick="saveItems()" disabled>0개 추가</button>
+        </div>
+    </div>
+    <div id="deletePage">
+        <div class="modal-header"><button onclick="closeDeletePage()">✕</button>
+            <h3>재료 삭제</h3>
+            <div style="width:40px;"></div>
+        </div>
+        <div class="select-all-bar"><span>전체 선택</span><input type="checkbox" id="selectAllCb"
+                onchange="toggleAllDeleteItems()"></div>
+        <div id="deleteListGrid" style="flex: 1; overflow-y: auto; padding: 20px; padding-bottom: 120px;"></div>
+        <div class="selection-footer"><button class="main-action-btn" id="delConfirmBtn" onclick="deleteSelectedItems()"
+                disabled>0개 삭제</button></div>
+    </div>
+    <div id="recipeDetailModal">
+        <div class="modal-header">
+            <button onclick="closeRecipeDetail()">✕</button>
+            <h3 id="modalRecipeName">레시피 상세</h3>
+            <div style="width:40px;"></div>
+        </div>
+        <div class="detail-body">
+            <img id="modalRecipeImg" src="" class="detail-img">
+
+            <div class="detail-section">
+                <h4><span class="material-icons" style="color:#495057;">shopping_basket</span>필요한 재료</h4>
+                <div id="modalIngredients" class="ing-status-wrap"></div>
+            </div>
+
+            <div class="detail-section">
+                <h4><span class="material-icons" style="color:#495057;">restaurant_menu</span>조리 방법</h4>
+                <div id="modalSteps"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 새로고침 방지 기능
+        /*
+        let touchStart = 0;
+        document.addEventListener('touchstart', (e) => { touchStart = e.touches[0].pageY; }, { passive: false });
+        document.addEventListener('touchmove', (e) => {
+            const touchMove = e.touches[0].pageY;
+            const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+            if (scrollTop <= 0 && touchMove > touchStart) { if (e.cancelable) e.preventDefault(); }
+        }, { passive: false });
+        */
+
+        let allRecipes = []; // DB 연동을 위한 전역 변수
+        let selectedItems = new Set();
+        let itemsToDelete = new Set();
+        let currentSortType = 'match';
+
+        // 정렬 메뉴 토글
+        function toggleSortMenu() {
+            const menu = document.getElementById('sortMenu');
+            menu.style.display = (menu.style.display === 'flex') ? 'none' : 'flex';
+        }
+
+        // 정렬 방식 선택
+        function selectSort(type, text) {
+            currentSortType = type;
+            document.getElementById('currentSortText').innerText = text;
+            document.getElementById('sortMenu').style.display = 'none';
+            filterRecipes(); // 정렬 변경 시 즉시 재렌더링
+        }
+
+        // 이름 검색 및 정렬 통합 필터
+        function filterRecipes() {
+            // 데이터가 없거나, 검색창이 없는 상태면 실행 안 함
+            const searchInput = document.getElementById('recipeSearch');
+            if (!allRecipes || allRecipes.length === 0 || !searchInput) return;
+
+            const keyword = searchInput.value.toLowerCase();
+
+            // 냉장고에 아이템이 하나도 없을 때를 대비한 안전한 추출
+            const nameElements = document.querySelectorAll('#refrigeratorPage .name');
+            const myIngs = nameElements ? Array.from(nameElements).map(el => el.innerText.trim()) : [];
+
+            let filtered = allRecipes.filter(r => r.name.toLowerCase().includes(keyword));
+
+            filtered.sort((a, b) => {
+                const rA = a.ingredients.filter(i => myIngs.includes(i)).length / a.ingredients.length;
+                const rB = b.ingredients.filter(i => myIngs.includes(i)).length / b.ingredients.length;
+                if (currentSortType === 'match') return rB - rA;
+                return currentSortType === 'max' ? b.ingredients.length - a.ingredients.length : a.ingredients.length - b.ingredients.length;
+            });
+
+            renderRecipeList(filtered, 'recipeList');
+        }
+
+        // DB 연동: 레시피 로드
+        async function fetchAllRecipes() {
+            try {
+                const res = await fetch('/api/recipes');
+                allRecipes = await res.json();
+                // 현재 설정된 정렬 방식으로 화면 갱신
+                sortRecipes(currentSortType);
+            } catch (e) { console.error("데이터 로드 실패", e); }
+        }
+
+        // 레시피 렌더링 엔진
+        function renderRecipeList(recipes, targetId) {
+            const container = document.getElementById(targetId);
+            // 냉장고에 있는 재료 목록 실시간 추출
+            const nameElements = document.querySelectorAll('#refrigeratorPage .name');
+            const myIngs = nameElements ? Array.from(nameElements).map(el => el.innerText.trim()) : [];
+
+            if (!recipes || recipes.length === 0) {
+                container.innerHTML = `<div style="text-align:center; padding-top:100px; color:#95a5a6;">데이터가 없습니다.</div>`;
+                return;
+            }
+
+            // 렌더링 시작
+            container.innerHTML = recipes.map(recipe => {
+                const have = recipe.ingredients.filter(i => myIngs.includes(i));
+                const rate = Math.round((have.length / recipe.ingredients.length) * 100);
+                const imgSrc = recipe.image_url || 'https://via.placeholder.com/100?text=No+Image';
+
+                return `
+        <div class="recipe-card" onclick="openRecipeDetail(${recipe.id})">
+            <img src="${imgSrc}" alt="${recipe.name}" class="recipe-img">
+            <div class="recipe-content">
+                <div class="recipe-header" style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                    <div style="flex: 1;">
+                        <span class="match-rate">${rate}% 보유</span>
+                        <div class="recipe-title" style="margin-top:8px; font-weight:800; color:var(--text-main); font-size:1.05rem;">
+                            ${recipe.name}
+                        </div>
+                    </div>
+                    <span class="material-icons fav-btn ${recipe.favorite ? 'active' : ''}" 
+                          style="cursor: pointer; font-size: 24px; margin-left: 10px;"
+                          onclick="event.stopPropagation(); toggleFavorite(${recipe.id}, this)">
+                          ${recipe.favorite ? 'star' : 'star_border'}
+                    </span>
+                </div>
+                
+                <div class="ing-status-wrap" style="margin-top: 10px;">
+                    ${recipe.ingredients.map(i => `
+                        <span class="ing-chip ${myIngs.includes(i) ? 'ing-have' : 'ing-lack'}">
+                            ${i}
+                        </span>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+        `;
+            }).join('');
+        }
+
+        function openRecipeDetail(id) {
+            const recipe = allRecipes.find(r => r.id == id);
+            if (!recipe) return;
+
+            // 기본 정보 세팅
+            document.getElementById('modalRecipeName').innerText = recipe.name;
+            document.getElementById('modalRecipeImg').src = recipe.image_url || 'https://via.placeholder.com/300?text=No+Image';
+
+            let rawIngs = (recipe.original_ingredients || "재료 정보가 없습니다.").trim();
+
+            // 자동 콜론 대상 키워드 목록
+            const keywords = ['재료', '곁들임', '밑간', '드레싱', '양념장', '양념', '고명', '필링', '토핑'];
+
+            // 각 키워드 뒤에 콜론이 없으면 자동으로 삽입 (정규표현식 동적 생성)
+            keywords.forEach(word => {
+                const regex = new RegExp(`${word}(?!\\s*:)`, 'g'); // 단어 뒤에 바로 콜론이 없는 경우만 찾음
+                rawIngs = rawIngs.replace(regex, `${word} :`);
+            });
+
+            // 3. 기호(●, -, *, v) 앞에서 줄바꿈 (첫 줄 제외)
+            const formattedIngs = rawIngs.replace(/(?!^)([●\-*v])/g, '\n$1');
+
+            document.getElementById('modalIngredients').innerHTML = `
+        <div style="background: #f8f9fa; border-radius: 12px; padding: 15px; line-height: 1.8; color: #495057; font-size: 15px; border: 1px solid #e9ecef; white-space: pre-line;">${formattedIngs}</div>
+    `;
+
+            // [조리법] 평문 자동 단계 분리
+            const rawInstructions = recipe.instructions || "";
+            if (rawInstructions.trim().length > 0) {
+                const steps = rawInstructions.split('.').map(s => s.trim()).filter(s => s.length > 1);
+                document.getElementById('modalSteps').innerHTML = steps.map((step, idx) => `
+            <div class="step-item" style="display: flex; gap: 12px; margin-bottom: 24px;">
+                <div class="step-num" style="background:#495057; color:white; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; flex-shrink:0;">
+                    ${idx + 1}
+                </div>
+                <div style="flex:1; line-height:1.6; color:#2c3e50; font-size:15px;">
+                    ${step}.
+                </div>
+            </div>
+        `).join('');
+            } else {
+                document.getElementById('modalSteps').innerHTML = "조리 방법 정보가 없습니다.";
+            }
+
+            document.getElementById('recipeDetailModal').style.display = 'flex';
+            if (window.location.hash !== "#detail") {
+                history.pushState({ page: 'detail' }, "상세정보", "#detail");
+            }
+        }
+
+        function closeRecipeDetail() {
+            // 현재 해시가 #detail이면 히스토리를 한 칸 뒤로 보냄
+            if (window.location.hash === "#detail") {
+                history.back();
+            } else {
+                // 이미 해시가 사라진 상태라면 모달만 숨깁니다.
+                document.getElementById('recipeDetailModal').style.display = 'none';
+            }
+        }
+
+        // 정렬 & 즐겨찾기 로직
+        function sortRecipes(type, el) {
+            currentSortType = type;
+            if (el) { document.querySelectorAll('.sort-chip').forEach(c => c.classList.remove('active')); el.classList.add('active'); }
+
+            const myIngs = Array.from(document.querySelectorAll('#refrigeratorPage .name')).map(el => el.innerText.trim());
+
+            const sorted = [...allRecipes].sort((a, b) => {
+                if (type === 'match') {
+                    const rA = a.ingredients.filter(i => myIngs.includes(i)).length / a.ingredients.length;
+                    const rB = b.ingredients.filter(i => myIngs.includes(i)).length / b.ingredients.length;
+                    return rB - rA;
+                }
+                return type === 'max' ? b.ingredients.length - a.ingredients.length : a.ingredients.length - b.ingredients.length;
+            });
+            renderRecipeList(sorted, 'recipeList');
+        }
+
+        window.onload = async () => {
+            console.log("데이터 로딩 시작...");
+
+            // 레시피 데이터 먼저 확실히 가져오기
+            await fetchAllRecipes();
+
+            // DOM이 완전히 브라우저에 안착할 시간을 0.1초만 줍니다. (무한로딩 방지)
+            setTimeout(() => {
+                if (allRecipes && allRecipes.length > 0) {
+                    filterRecipes();
+                    console.log("레시피 초기 렌더링 완료");
+                }
+            }, 100);
+        };
+
+        // 즐겨찾기 엔진
+        async function toggleFavorite(id, el) {
+            // 전역 배열에서 해당 레시피 찾기
+            const recipeIndex = allRecipes.findIndex(r => r.id === id);
+            if (recipeIndex === -1) return;
+
+            // 상태 반전 및 전역 변수 즉시 반영
+            const newStatus = !allRecipes[recipeIndex].favorite;
+            allRecipes[recipeIndex].favorite = newStatus;
+
+            // UI 즉시 피드백
+            el.innerText = newStatus ? 'star' : 'star_border';
+            el.classList.toggle('active', newStatus);
+
+            // 현재 보고 있는 페이지가 '즐겨찾기'라면 즉시 리스트에서 제거/추가
+            if (document.getElementById('favoritePage').style.display === 'block') {
+                const favList = allRecipes.filter(r => r.favorite);
+                renderRecipeList(favList, 'favoriteList');
+            }
+
+            // 서버 통신 (백그라운드)
+            try {
+                const res = await fetch(`/api/recipes/${id}/favorite`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ favorite: newStatus })
+                });
+                if (!res.ok) throw new Error();
+            } catch (e) {
+                // 실패 시 롤백
+                allRecipes[recipeIndex].favorite = !newStatus;
+                alert("연결이 불안정하여 반영되지 않았습니다.");
+                sortRecipes(currentSortType); // 화면 복구
+            }
+        }
+
+        /* ---------------------------------------------------------
+         탭 전환 로직 (최적화 및 FAB 제어 포함)
+        --------------------------------------------------------- */
+        function switchTab(tabName, el) {
+            // 탭 전환 시 열려있던 떠 있는 메뉴들 강제 종료 
+            const sortMenu = document.getElementById('sortMenu');
+            if (sortMenu) sortMenu.style.display = 'none';
+
+            const fabMenu = document.getElementById('fabSubMenu');
+            if (fabMenu) fabMenu.style.display = 'none';
+
+            // 하단 네비게이션 아이콘 활성화 상태 변경
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            if (el) el.classList.add('active');
+
+            // 상단 타이틀 및 페이지 섹션 설정
+            const titleEl = document.getElementById('topTitle');
+            const sections = ['refrigeratorPage', 'recipePage', 'favoritePage'];
+
+            // 모든 섹션 숨김 처리
+            sections.forEach(s => {
+                const target = document.getElementById(s);
+                if (target) target.style.display = 'none';
+            });
+
+            // 페이지 최상단으로 스크롤 이동
+            const mainContent = document.getElementById('mainContent');
+            if (mainContent) {
+                mainContent.scrollTop = 0;
+            } else {
+                window.scrollTo(0, 0);
+            }
+
+            // 선택된 탭별 분기 처리 및 FAB 제어
+            const fab = document.getElementById('mainFab');
+
+            if (tabName === 'refrigerator') {
+                titleEl.innerText = "내 냉장고";
+                document.getElementById('refrigeratorPage').style.display = 'block';
+                if (fab) fab.style.display = 'flex'; // 냉장고 탭에서만 FAB 노출
+
+            } else if (tabName === 'recipes') {
+                titleEl.innerText = "모든 레시피";
+                document.getElementById('recipePage').style.display = 'block';
+                if (fab) fab.style.display = 'none'; // 레시피 탭에서는 FAB 숨김
+                filterRecipes(); // 저장된 데이터로 즉시 렌더링
+
+            } else if (tabName === 'favorites') {
+                titleEl.innerText = "즐겨찾기";
+                document.getElementById('favoritePage').style.display = 'block';
+                if (fab) fab.style.display = 'none'; // 즐겨찾기 탭에서도 FAB 숨김
+
+                // 즐겨찾기 데이터만 필터링해서 출력
+                const favList = allRecipes.filter(r => r.favorite);
+                renderRecipeList(favList, 'favoriteList');
+            }
+        }
+
+        /* --- 시스템 및 팝업 제어 --- */
+        window.onpopstate = function (event) {
+            // 상세 모달이 열려있는 상태에서 뒤로가기를 누르면 해시가 사라짐을 감지
+            const detailModal = document.getElementById('recipeDetailModal');
+            const addPage = document.getElementById('addPage');
+            const deletePage = document.getElementById('deletePage');
+
+            // 모든 모달/페이지를 숨기고 메인 화면으로 복귀
+            if (detailModal) detailModal.style.display = 'none';
+            if (addPage) addPage.style.display = 'none';
+            if (deletePage) deletePage.style.display = 'none';
+
+            // FAB 메뉴도 열려있다면 닫음
+            const fabMenu = document.getElementById('fabSubMenu');
+            if (fabMenu) fabMenu.style.display = 'none';
+        };
+
+        function openSettings() {
+        // 경고창(alert) 대신, 사이드바를 스르륵 여는 마법 주문을 여기에 넣습니다!
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+        }
+
+        // FAB 및 페이지 전환
+        function toggleFabMenu() {
+            const m = document.getElementById('fabSubMenu');
+            m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
+        }
+
+        function openAddPage() {
+            selectedItems.clear();
+
+            const chipContainer = document.getElementById('selectedChips');
+            if (chipContainer) {
+                chipContainer.innerHTML = "";
+            }
+            const saveBtn = document.getElementById('saveBtn');
+            if (saveBtn) {
+                saveBtn.innerText = "0개 추가";
+                saveBtn.disabled = true;
+            }
+            const ingSearchInput = document.getElementById('ingSearch');
+            if (ingSearchInput) {
+                ingSearchInput.value = "";
+            }
+            document.getElementById('addPage').style.display = 'flex';
+            const fabMenu = document.getElementById('fabSubMenu');
+            if (fabMenu) fabMenu.style.display = 'none';
+            searchIng();
+            history.pushState({ page: 'add' }, "추가", "#add");
+        }
+
+        function closeAddPage() {
+            if (window.location.hash === "#add") history.back();
+            document.getElementById('addPage').style.display = 'none';
+        }
+
+        function openDeletePage() {
+            itemsToDelete.clear();
+            const delBtn = document.getElementById('delConfirmBtn');
+            if (delBtn) {
+                delBtn.innerText = "0개 삭제";
+                delBtn.disabled = true;
+            }
+            toggleFabMenu();
+            document.getElementById('deletePage').style.display = 'flex';
+            renderDeleteList();
+            history.pushState({ page: 'delete' }, "삭제", "#delete");
+        }
+
+        function closeDeletePage() {
+            if (window.location.hash === "#delete") history.back();
+            document.getElementById('deletePage').style.display = 'none';
+        }
+
+        // 재료 검색 및 추가
+        async function searchIng() {
+            const q = document.getElementById('ingSearch').value.trim();
+            const res = await fetch(`/items/search?q=${encodeURIComponent(q || 'popular')}`);
+            const data = await res.json();
+            const grid = document.getElementById('ingredientGrid');
+            const myIngs = Array.from(document.querySelectorAll('#refrigeratorPage .name')).map(el => el.innerText.trim());
+
+            grid.innerHTML = data.map(item => `
+        <div class="ing-item ${selectedItems.has(item.name) ? 'selected' : ''} ${myIngs.includes(item.name) ? 'disabled' : ''}" 
+             onclick="toggleItem('${item.name}', this)">
+            ${item.name}
+        </div>
+    `).join('');
+        }
+
+        function toggleItem(name, el) {
+            if (el.classList.contains('disabled')) return;
+            selectedItems.has(name) ? selectedItems.delete(name) : selectedItems.add(name);
+            el.classList.toggle('selected');
+
+            document.getElementById('selectedChips').innerHTML = Array.from(selectedItems).map(n => `<div class="chip">${n}</div>`).join('');
+            document.getElementById('saveBtn').innerText = `${selectedItems.size}개 추가`;
+            document.getElementById('saveBtn').disabled = selectedItems.size === 0;
+        }
+
+        async function saveItems() {
+            await Promise.all(Array.from(selectedItems).map(name =>
+                fetch('/items', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name, expiry_date: "" })
+                })
+            ));
+            location.reload();
+        }
+
+        // 재료 삭제 관리
+        function renderDeleteList() {
+            const container = document.getElementById('deleteListGrid');
+            const cards = document.querySelectorAll('#refrigeratorPage .item-card');
+
+            container.innerHTML = Array.from(cards).map(card => `
+        <div class="item-card" onclick="toggleDeleteItem('${card.querySelector('.name').innerText.trim()}', this)">
+            ${card.innerHTML}
+        </div>
+    `).join('');
+
+            container.querySelectorAll('input').forEach(i => i.style.pointerEvents = 'none');
+        }
+
+        function toggleDeleteItem(name, el) {
+            itemsToDelete.has(name) ? itemsToDelete.delete(name) : itemsToDelete.add(name);
+            el.classList.toggle('selected');
+            document.getElementById('delConfirmBtn').innerText = `${itemsToDelete.size}개 삭제`;
+            document.getElementById('delConfirmBtn').disabled = itemsToDelete.size === 0;
+        }
+
+        function toggleAllDeleteItems() {
+            const isChecked = document.getElementById('selectAllCb').checked;
+            itemsToDelete.clear();
+
+            document.querySelectorAll('#deleteListGrid .item-card').forEach(card => {
+                const name = card.querySelector('.name').innerText.trim();
+                if (isChecked) {
+                    itemsToDelete.add(name);
+                    card.classList.add('selected');
+                } else {
+                    card.classList.remove('selected');
+                }
+            });
+
+            document.getElementById('delConfirmBtn').innerText = `${itemsToDelete.size}개 삭제`;
+            document.getElementById('delConfirmBtn').disabled = itemsToDelete.size === 0;
+        }
+
+        async function deleteSelectedItems() {
+            if (!confirm(`${itemsToDelete.size}개를 삭제할까요?`)) return;
+            await Promise.all(Array.from(itemsToDelete).map(name =>
+                fetch(`/items/${encodeURIComponent(name)}`, { method: 'DELETE' })
+            ));
+            location.reload();
+        }
+
+        // 데이터 및 날짜 관리
+        function triggerDatePicker(event, el) {
+            if (event.target.tagName === 'INPUT') return;
+            const d = el.querySelector('input[type="date"]');
+            if (d) d.showPicker();
+        }
+
+        async function updateDate(n, d) {
+            await fetch(`/update-item/${encodeURIComponent(n)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ expiry_date: d })
+            });
+            location.reload();
+        }
+    </script>
+    <div id="sidebar-overlay" class="sidebar-overlay" onclick="openSettings()"></div>
+
+    <div id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h2>사용자 설정</h2>
+            <button class="close-btn" onclick="openSettings()">✕</button>
+        </div>
+
+        <div class="sidebar-content">
+            <div class="menu-section">
+                <h3>메인 메뉴</h3>
+                <ul>
+                    <li><a href="#" onclick="alert('준비 중인 기능입니다!')">🛒 장보기 목록</a></li>
+                    <li><a href="#" onclick="alert('준비 중인 기능입니다!')">📅 식단 기록</a></li>
+                </ul>
+            </div>
+
+            <div class="menu-section">
+                <h3>계정 관리</h3>
+                <ul>
+                    <li><a href="/profile">👤 내 정보 확인</a></li>
+                    <li><a href="/logout">🚪 로그아웃</a></li>
+                </ul>
+            </div>
+            
+            <form action="/withdraw" method="POST" onsubmit="return confirm('정말 탈퇴하시겠습니까? 모든 정보가 영구적으로 삭제됩니다.');" style="margin: 0;">
+                <button type="submit" style="background: none; border: none; color: #999; text-decoration: underline; cursor: pointer; padding: 0; font-size: 0.9rem;">
+                    회원 탈퇴
+                </button>
+            </form>
+        </div>
+    </div>
+</body>
+
+</html>
