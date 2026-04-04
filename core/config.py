@@ -3,11 +3,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 env_path = Path(__file__).resolve().parent.parent / ".env"
-load_dotenv(dotenv_path=env_path)
+load_dotenv(dotenv_path=env_path, override=True) # override 추가로 값 강제 갱신
 
 class Settings:
-    DATABASE_URL: str = os.getenv("DATABASE_URL")
-    BASE_URL: str = os.getenv("BASE_URL")
-    # 나중에 추가될 API 키나 보안 설정도 여기서 관리합니다.
+    # .strip()을 추가해 공백이나 줄바꿈 문자를 제거
+    DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+    API_KEY = os.getenv("API_KEY", "").strip()
 
 settings = Settings()
