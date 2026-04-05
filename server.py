@@ -74,7 +74,11 @@ def login_user(
 
 @app.get("/register")
 def register_page(request: Request):
-    return templates.TemplateResponse("register.html", {"request": request})
+    return templates.TemplateResponse(
+        request=request,
+        name="register.html",
+        context={}
+    )
 
 @app.post("/register")
 def register_user(
@@ -340,7 +344,11 @@ def profile_page(request: Request, db: Session = Depends(get_db), current_user_i
     if not current_user_id:
         return RedirectResponse(url="/login", status_code=303)
     user = db.query(User).filter(User.id == current_user_id).first()
-    return templates.TemplateResponse("profile.html", {"request": request, "user": user})
+    return templates.TemplateResponse(
+        request=request,
+        name="profile.html",
+        context={"user": user}
+    )
 
 @app.post("/update-profile")
 def update_profile(
