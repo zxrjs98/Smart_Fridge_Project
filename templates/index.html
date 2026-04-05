@@ -13,7 +13,7 @@
         :root {
             --primary-color: #4A90E2;
             --urgent-color: #ff4d4d;
-            --warning-color: #ffa500;
+            --warning-color: #ff9800;
             --bg-color: #f5f7fa;
             --card-bg: #ffffff;
             --text-main: #2c3e50;
@@ -507,7 +507,7 @@
             will-change: transform;
         }
 
-        /* 리스트는 검색창 높이만큼만 '마이너스 마진' 혹은 '적절한 패딩'으로 조절 */
+        /* 리스트는 검색창 높이만큼만 적절한 패딩으로 조절 */
         #recipeList {
             padding: 5px 15px 210px 15px !important;
             margin-top: 0 !important;
@@ -828,18 +828,15 @@
                     </div>
 
                     {% if item.expiry_date and item.d_day is not none %}
-                    <div style="font-size: 0.85rem; font-weight: 900; margin-top: 6px;">
-                        {% if item.d_day < 0 %} 
-                            <span style="color: #ff4d4d;">기한 만료 (D+{{ -item.d_day }}) 🚨</span>
-                        {% elif item.d_day <= 1 %} 
-                            <span style="color: #ff4d4d;">
-                                {% if item.d_day == 0 %}D-Day 🚨{% else %}D-1 ❗{% endif %}
-                            </span>
-                        {% elif item.d_day <= 3 %} 
-                            <span style="color: #fbbc04;">D-{{ item.d_day }} ⚠️</span>
-                        {% else %}
-                            <span style="color: #333333;">D-{{ item.d_day }}</span>
-                        {% endif %}
+                    <div style="font-size: 0.75rem; font-weight: 800; margin-top: 2px;">
+                        {% if item.d_day < 0 %} <span style="color: var(--urgent-color);">기한 만료 (D+{{ -item.d_day
+                            }})</span>
+                            {% elif item.d_day <= 3 %} <span style="color: var(--warning-color);">
+                                {% if item.d_day == 0 %}D-Day{% else %}D-{{ item.d_day }}{% endif %}
+                                </span>
+                                {% else %}
+                                <span style="color: var(--primary-color);">D-{{ item.d_day }}</span>
+                                {% endif %}
                     </div>
                     {% endif %}
                 </div>
@@ -882,8 +879,29 @@
         <div id="recipeList"></div>
     </div>
 
-    <div id="favoritePage" style="display:none;" class="app-container">
-        <div id="favoriteList"></div>
+    <div id="favoritePage" style="display:none; width: 100%;">
+
+        <div class="recipe-sticky-header"
+            style="position: fixed; top: 60px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 600px; background: white; z-index: 4000; padding: 10px 16px 12px 16px; border-bottom: 1px solid #f1f3f5; box-sizing: border-box;">
+
+            <div class="sort-container" style="display: flex; justify-content: flex-end;">
+                <div class="sort-trigger" onclick="toggleFavSortMenu()">
+                    <span id="currentFavSortText"
+                        style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);">보유율 높은 순</span>
+                    <span class="material-icons" style="vertical-align: middle;">expand_more</span>
+                </div>
+
+                <div id="favSortMenu" class="sort-menu" style="right: 16px; top: 40px;">
+                    <div onclick="selectFavSort('match', '보유율 높은 순')">보유율 높은 순</div>
+                    <div onclick="selectFavSort('min', '필요재료 적은 순')">필요 재료 적은 순</div>
+                    <div onclick="selectFavSort('max', '필요재료 많은 순')">필요 재료 많은 순</div>
+                </div>
+            </div>
+        </div>
+
+        <div style="height: 120px; width: 100%;"></div>
+
+        <div id="favoriteList" style="padding: 0 15px 120px 15px !important;"></div>
     </div>
 
     <nav class="bottom-nav">
@@ -960,24 +978,33 @@
     </div>
 
     <input type="file" id="receiptFile" accept="image/*" style="display:none;" onchange="uploadReceipt()">
-    
-    <div id="loadingModal" style="display:none; position:fixed; top:0; left:50%; transform:translateX(-50%); width:100%; max-width:600px; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center; flex-direction:column;">
-        <div style="background:white; padding:30px; border-radius:15px; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,0.2);">
-            <span class="material-icons" style="font-size:40px; color:var(--primary-color); animation: spin 2s linear infinite;">hourglass_empty</span>
+
+    <div id="loadingModal"
+        style="display:none; position:fixed; top:0; left:50%; transform:translateX(-50%); width:100%; max-width:600px; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center; flex-direction:column;">
+        <div
+            style="background:white; padding:30px; border-radius:15px; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,0.2);">
+            <span class="material-icons"
+                style="font-size:40px; color:var(--primary-color); animation: spin 2s linear infinite;">hourglass_empty</span>
             <h3 style="margin:15px 0 5px 0; color:#333;">영수증 분석 중...</h3>
             <p style="margin:0; color:#666; font-size:0.9rem;">잠시만 기다려주세요</p>
         </div>
     </div>
-    <style>@keyframes spin { 100% { transform: rotate(360deg); } }</style>
+    <style>
+        @keyframes spin {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
 
     <script>
-        // 📸 스캔 버튼을 눌렀을 때 실행되는 함수
+        // 스캔 버튼을 눌렀을 때 실행되는 함수
         function triggerCamera() {
             toggleFabMenu(); // 열려있는 + 메뉴 닫기
             document.getElementById('receiptFile').click(); // 숨겨진 파일 첨부 창 열기
         }
 
-        // 📸 스캔 결과 처리 함수
+        // 스캔 결과 처리 함수
         async function uploadReceipt() {
             const fileInput = document.getElementById('receiptFile');
             if (!fileInput.files.length) return;
@@ -1002,20 +1029,19 @@
                         });
                         count++;
                     }
-                    alert(`✅ ${count}개의 재료가 스캔되어 냉장고에 들어갔습니다!`);
-                    location.reload(); 
+                    alert(`${count}개의 재료가 스캔되어 냉장고에 들어갔습니다`);
+                    location.reload();
                 } else {
-                    alert("❌ 스캔 실패: " + (data.error || "알 수 없는 오류"));
+                    alert("스캔 실패: " + (data.error || "알 수 없는 오류"));
                     document.getElementById('loadingModal').style.display = 'none';
                 }
-            } catch (e) { 
+            } catch (e) {
                 alert("서버 연결에 실패했습니다.");
                 document.getElementById('loadingModal').style.display = 'none';
             }
             fileInput.value = ''; // 초기화
         }
 
-        // --- 기존 스크립트 그대로 유지 ---
         let allRecipes = []; // DB 연동을 위한 전역 변수
         let selectedItems = new Set();
         let itemsToDelete = new Set();
@@ -1046,10 +1072,10 @@
             const myIngs = Array.from(nameElements).map(el => el.innerText.trim());
 
             let filtered = allRecipes.filter(recipe => {
-                // 1. 이름 검색 매칭 여부
+                // 이름 검색 매칭 여부
                 const matchesName = recipe.name.toLowerCase().includes(keyword);
 
-                // 2. 선택된 칩 재료가 모두 포함되어 있는지 확인 (AND 필터링)
+                // 선택된 칩 재료가 모두 포함되어 있는지 확인 (AND 필터링)
                 const matchesSelectedIngs = Array.from(selectedSearchIngs).every(selected =>
                     recipe.ingredients.includes(selected)
                 );
@@ -1057,7 +1083,7 @@
                 return matchesName && matchesSelectedIngs;
             });
 
-            // 3. 정렬 적용
+            // 정렬 적용
             filtered.sort((a, b) => {
                 const rA = a.ingredients.filter(i => myIngs.includes(i)).length / a.ingredients.length;
                 const rB = b.ingredients.filter(i => myIngs.includes(i)).length / b.ingredients.length;
@@ -1210,8 +1236,16 @@
         window.onload = async () => {
             console.log("데이터 로딩 시작...");
 
-            // 레시피 데이터 먼저 확실히 가져오기
+            // 레시피 데이터 먼저 가져오기
             await fetchAllRecipes();
+
+            if (allRecipes && allRecipes.length > 0) {
+                selectSort('match', '보유율 높은 순');
+            }
+
+            if (typeof renderFavorites === 'function') {
+                renderFavorites();
+            }
 
             // DOM이 완전히 브라우저에 안착할 시간을 0.1초만 줍니다. (무한로딩 방지)
             setTimeout(() => {
@@ -1258,9 +1292,8 @@
             }
         }
 
-        /* ---------------------------------------------------------
-         탭 전환 로직 (최적화 및 FAB 제어 포함)
-        --------------------------------------------------------- */
+        
+        // 탭 전환 로직 (최적화 및 FAB 제어 포함)
         function switchTab(tabName, el) {
             // 탭 전환 시 열려있던 떠 있는 메뉴들 강제 종료 
             const sortMenu = document.getElementById('sortMenu');
@@ -1319,7 +1352,7 @@
             }
         }
 
-        /* --- 시스템 및 팝업 제어 --- */
+        // 시스템 및 팝업 제어
         window.onpopstate = function (event) {
             // 상세 모달이 열려있는 상태에서 뒤로가기를 누르면 해시가 사라짐을 감지
             const detailModal = document.getElementById('recipeDetailModal');
@@ -1337,7 +1370,6 @@
         };
 
         function openSettings() {
-        // 경고창(alert) 대신, 사이드바를 스르륵 여는 마법 주문을 여기에 넣습니다!
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebar-overlay');
             sidebar.classList.toggle('active');
@@ -1495,6 +1527,48 @@
             });
             location.reload();
         }
+        // 즐겨찾기 전용 변수 선언
+        let currentFavSortType = 'match';
+
+        // 즐겨찾기 정렬 메뉴 토글
+        function toggleFavSortMenu() {
+            const menu = document.getElementById('favSortMenu');
+            menu.style.display = (menu.style.display === 'flex') ? 'none' : 'flex';
+        }
+
+        // 즐겨찾기 정렬 방식 선택
+        function selectFavSort(type, text) {
+            currentFavSortType = type;
+            document.getElementById('currentFavSortText').innerText = text;
+            document.getElementById('favSortMenu').style.display = 'none';
+            renderFavorites(); 
+        }
+
+        // 즐겨찾기 전용 렌더링 함수
+        function renderFavorites() {
+            // 데이터가 없으면 중단
+            if (!allRecipes || allRecipes.length === 0) return;
+
+            // 즐겨찾기 된 것만 1차 필터링
+            let favList = allRecipes.filter(r => r.favorite);
+
+            // 내 냉장고 재료 목록 추출
+            const nameElements = document.querySelectorAll('#refrigeratorPage .name');
+            const myIngs = Array.from(nameElements).map(el => el.innerText.trim());
+
+            // 현재 설정된 정렬 타입에 따라 강제로 정렬 수행
+            favList.sort((a, b) => {
+                const rA = a.ingredients.filter(i => myIngs.includes(i)).length / a.ingredients.length;
+                const rB = b.ingredients.filter(i => myIngs.includes(i)).length / b.ingredients.length;
+
+                if (currentFavSortType === 'match') return rB - rA; // 보유율순
+                if (currentFavSortType === 'max') return b.ingredients.length - a.ingredients.length; // 재료 많은순
+                return a.ingredients.length - b.ingredients.length; // 재료 적은순
+            });
+
+            // 정렬된 리스트를 화면에 출력
+            renderRecipeList(favList, 'favoriteList');
+        }
     </script>
     <div id="sidebar-overlay" class="sidebar-overlay" onclick="openSettings()"></div>
 
@@ -1520,9 +1594,11 @@
                     <li><a href="/logout">🚪 로그아웃</a></li>
                 </ul>
             </div>
-            
-            <form action="/withdraw" method="POST" onsubmit="return confirm('정말 탈퇴하시겠습니까? 모든 정보가 영구적으로 삭제됩니다.');" style="margin: 0;">
-                <button type="submit" style="background: none; border: none; color: #999; text-decoration: underline; cursor: pointer; padding: 0; font-size: 0.9rem;">
+
+            <form action="/withdraw" method="POST" onsubmit="return confirm('정말 탈퇴하시겠습니까? 모든 정보가 영구적으로 삭제됩니다.');"
+                style="margin: 0;">
+                <button type="submit"
+                    style="background: none; border: none; color: #999; text-decoration: underline; cursor: pointer; padding: 0; font-size: 0.9rem;">
                     회원 탈퇴
                 </button>
             </form>
@@ -1570,15 +1646,15 @@
 
             cards.sort((a, b) => {
                 if (sortType === 'expiry') {
-                    // 1. 소비기한순 (숫자 오름차순)
+                    // 소비기한순 (숫자 오름차순)
                     return parseInt(a.getAttribute('data-dday')) - parseInt(b.getAttribute('data-dday'));
                 }
                 else if (sortType === 'latest') {
-                    // 2. 최근 등록순 (인덱스 내림차순)
-                    return parseInt(b.getAttribute('data-id')) - parseInt(a.getAttribute('id'));
+                    // 최근 등록순 (인덱스 내림차순)
+                    return parseInt(b.getAttribute('data-id')) - parseInt(a.getAttribute('data-id'));
                 }
                 else if (sortType === 'name') {
-                    // 3. 가나다순
+                    // 가나다순
                     const nameA = a.querySelector('.name').innerText.trim();
                     const nameB = b.querySelector('.name').innerText.trim();
                     return nameA.localeCompare(nameB, 'ko');
@@ -1589,7 +1665,7 @@
             cards.forEach(card => container.appendChild(card));
         }
         function filterFridge(type, btn) {
-            // 1. 모든 탭 버튼의 active 클래스 제거 및 클릭된 버튼에 추가
+            // 모든 탭 버튼의 active 클래스 제거 및 클릭된 버튼에 추가
             document.querySelectorAll('.f-tab').forEach(tab => tab.classList.remove('active'));
             btn.classList.add('active');
 
@@ -1627,13 +1703,13 @@
                 card.style.display = isVisible ? 'flex' : 'none';
             });
         }
-        // 1. 냉장고 정렬 메뉴 토글
+        // 냉장고 정렬 메뉴 토글
         function toggleFridgeSortMenu() {
             const menu = document.getElementById('fridgeSortMenu');
             menu.style.display = (menu.style.display === 'flex') ? 'none' : 'flex';
         }
 
-        // 2. 냉장고 정렬 방식 선택 및 실행
+        // 냉장고 정렬 방식 선택 및 실행
         function selectFridgeSort(type, text) {
             document.getElementById('currentFridgeSortText').innerText = text;
             document.getElementById('fridgeSortMenu').style.display = 'none';
@@ -1656,7 +1732,7 @@
             cards.forEach(card => container.appendChild(card));
         }
 
-        // 3. 5단 탭 필터링 로직
+        // 5단 탭 필터링 로직
         function filterFridge(type, el) {
             // 탭 스타일 변경
             document.querySelectorAll('#fridgeTabs .sort-chip').forEach(c => c.classList.remove('active'));
