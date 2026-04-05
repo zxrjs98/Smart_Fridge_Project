@@ -1,13 +1,18 @@
 {
-  "name": "스마트 냉장고 관리자",
-  "short_name": "냉장고",
+  "name": "FreshKeep",
+  "short_name": "FreshKeep",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#1a73e8",
+  "theme_color": "#4A90E2",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/1162/1162456.png",
+      "src": "/static/images/leaf.png",  
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/images/leaf.png",  
       "sizes": "512x512",
       "type": "image/png"
     }

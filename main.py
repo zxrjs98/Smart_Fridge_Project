@@ -1,109 +1,105 @@
 import flet as ft
 import requests
+import os
+import time
+from dotenv import load_dotenv
 
-SERVER_URL = "https://quizzable-flor-lexicographical.ngrok-free.dev"
+load_dotenv()
+SERVER_URL = 'https://charlotte-calenturish-santana.ngrok-free.dev'
+
 def main(page: ft.Page):
-    page.title = "스마트 냉장고 관리"
+    page.title = "FreshKeep"
     page.window_width = 400
-    page.window_height = 700
+    page.window_height = 750
     page.theme_mode = ft.ThemeMode.LIGHT
+    
+    # 1. 목록이 들어갈 컬럼 (스크롤 가능하게 설정)
+    inventory_column = ft.Column(expand=True, scroll=ft.ScrollMode.ALWAYS)
 
-    inventory_column = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO)
-
-    # 서버에서 데이터 가져오기
-    def fetch_items():
+    # 2. 데이터 불러오기 함수
+    def fetch_items(e=None):
         try:
-            response = requests.get(f"{SERVER_URL}/items")
-            if response.status_code == 200:
+            print("🔄 데이터 불러오는 중...")
+            res = requests.get(f"{SERVER_URL}/items", timeout=5)
+            if res.status_code == 200:
+                items = res.json()
                 inventory_column.controls.clear()
-                for item in response.json():
-                    add_item_to_ui(item['name'], item['date'])
+                
+                for item in items:
+                    # D-Day에 따른 색상 정하기
+                    d_day = item.get('d_day')
+                    t_color = "red" if d_day is not None and d_day <= 1 else "black"
+                    d_text = "🚨 임박" if d_day is not None and d_day <= 1 else f"D-{d_day}"
+                    
+                    # 리스트에 추가
+                    inventory_column.controls.append(
+                        ft.Container(
+                            content=ft.ListTile(
+                                leading=ft.Icon(ft.Icons.KITCHEN, color="blue"),
+                                title=ft.Text(item['name'], weight="bold", color=t_color),
+                                subtitle=ft.Text(f"{item.get('expiry_date')} | {d_text}", color=t_color),
+                                trailing=ft.IconButton(
+                                    icon=ft.Icons.DELETE, 
+                                    on_click=lambda _, n=item['name']: remove_item(n)
+                                )
+                            ),
+                            border=ft.border.all(1, "black12"),
+                            border_radius=10
+                        )
+                    )
+                print(f"✅ {len(items)}개 목록 갱신 완료")
                 page.update()
-        except Exception as e:
-            print(f"서버 연결 오류: {e}")
+        except Exception as ex:
+            print(f"❌ 오류: {ex}")
 
-    # 리스트에서 아이템 삭제 (화면상 삭제)
-    # 리스트에서 아이템 삭제 (서버 연동 버전)
-    def remove_item_from_server(name, item_row):
-        try:
-            # 1. 서버(DB)에 삭제 요청 보내기
-            response = requests.delete(f"{SERVER_URL}/items/{name}")
-            
-            if response.status_code == 200:
-                # 2. 서버 삭제 성공 시에만 화면에서 제거
-                inventory_column.controls.remove(item_row)
-                page.update()
-                print(f"{name} 삭제 완료")
-            else:
-                print("서버 삭제 실패")
-        except Exception as e:
-            print(f"삭제 오류: {e}")
+    def remove_item(name):
+        requests.delete(f"{SERVER_URL}/items/{name}")
+        fetch_items()
 
-    # UI 아이템 생성 (IconButton 에러 방지 적용)
-    def add_item_to_ui(name, date):
-        new_row = ft.ListTile(
-            leading=ft.Icon(ft.icons.KITCHEN, color=ft.colors.BLUE),
-            title=ft.Text(name, weight="bold"),
-            subtitle=ft.Text(f"소비기한: {date}"),
-            trailing=ft.IconButton(
-                icon=ft.icons.DELETE_OUTLINE, # 아이콘 명시 필수
-                on_click=lambda _: remove_item_from_server(name, new_row)
-            )
-        )
-        inventory_column.controls.append(new_row)
+    # 3. 등록 팝업 관련
+    name_input = ft.TextField(label="재료명")
+    date_input = ft.TextField(label="기한 (YYYY-MM-DD)")
 
-    # 서버에 데이터 저장
-    def save_item(e):
+    def save_action(e):
         if name_input.value:
-            payload = {"name": name_input.value, "date": date_input.value}
-            try:
-                response = requests.post(f"{SERVER_URL}/items", json=payload)
-                if response.status_code == 200:
-                    fetch_items()
-                    name_input.value = ""
-                    date_input.value = ""
-                    add_dialog.open = False
-                    page.update()
-            except Exception as e:
-                print(f"저장 오류: {e}")
+            payload = {"name": name_input.value, "expiry_date": date_input.value}
+            requests.post(f"{SERVER_URL}/items", json=payload)
+            add_dialog.open = False
+            name_input.value = ""
+            date_input.value = ""
+            page.update()
+            time.sleep(0.5)
+            fetch_items()
 
-    # 입력 팝업 설정
-    name_input = ft.TextField(label="재료 이름")
-    date_input = ft.TextField(label="소비기한")
     add_dialog = ft.AlertDialog(
         title=ft.Text("새 재료 등록"),
         content=ft.Column([name_input, date_input], tight=True),
-        actions=[ft.ElevatedButton("등록하기", on_click=save_item)],
+        actions=[ft.TextButton("등록", on_click=save_action)]
+    )
+    page.overlay.append(add_dialog)
+
+    # 4. 화면 구성 (여기가 핵심!)
+    # 상단바 설정
+    page.appbar = ft.AppBar(
+        title=ft.Text("우리집 냉장고"),
+        bgcolor="blue",
+        actions=[ft.IconButton(icon=ft.Icons.REFRESH, on_click=fetch_items)]
     )
 
-    def show_dialog(e):
-        page.dialog = add_dialog
-        add_dialog.open = True
-        page.update()
-
-    # 화면 구성
+    # 메인 화면에 들어갈 요소들
     page.add(
-    ft.AppBar(
-        title=ft.Text("우리집 냉장고"), 
-        bgcolor=ft.colors.BLUE_50, 
-        center_title=True,
-        # 우측 상단에 새로고침 버튼 추가
-        actions=[
-            ft.IconButton(
-                icon=ft.icons.REFRESH, 
-                on_click=lambda _: fetch_items(), # 버튼 누르면 서버에서 다시 가져옴
-                tooltip="새로고침"
-            )
-        ]
-    ),
-    inventory_column,
-    ft.FloatingActionButton(
-        icon=ft.icons.ADD, 
-        on_click=show_dialog, 
-        bgcolor=ft.colors.BLUE
+        ft.Text("냉장고 현황", size=25, weight="bold"),
+        ft.Divider(),
+        # 컬럼을 Container로 감싸서 높이를 확보해줍니다.
+        ft.Container(content=inventory_column, expand=True), 
+        ft.FloatingActionButton(
+            icon=ft.Icons.ADD, 
+            on_click=lambda _: (setattr(add_dialog, "open", True), page.update()),
+            bgcolor="blue"
+        )
     )
-)
 
+    # 시작하자마자 데이터 불러오기
     fetch_items()
 
 if __name__ == "__main__":

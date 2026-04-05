@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+sqlalchemy
+pymysql
+python-dotenv
+jinja2
+passlib[bcrypt]
+bcrypt==4.0.1
+python-multipart
+requests
