@@ -7,13 +7,6 @@ self.addEventListener('fetch', (e) => {
   return;
 });
 
-// 💡 사이드바 열고 닫는 스위치 함수
-function toggleSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('sidebar-overlay');
-    sidebar.classList.toggle('active');
-    overlay.classList.toggle('active');
-}
 
 // 내 정보 수정 팝업 열기/닫기
 function openUserInfo() {

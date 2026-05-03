@@ -1,5 +1,5 @@
 from datetime import date
-from sqlalchemy import Column, Integer, String, Date, Boolean, Text, ForeignKey
+from sqlalchemy import Column, Integer, String, Date, Boolean, Text, ForeignKey, DateTime, func, UniqueConstraint
 from sqlalchemy.orm import relationship
 from .connection import Base
 
@@ -13,6 +13,7 @@ class User(Base):
     
     items = relationship("Item", back_populates="owner", cascade="all, delete-orphan")
     favorites = relationship("Favorite", back_populates="user", cascade="all, delete-orphan")
+    shopping_items = relationship("ShoppingList", back_populates="user", cascade="all, delete-orphan")
 
 # 내 냉장고 재료
 class Item(Base):
@@ -28,8 +29,21 @@ class Favorite(Base):
     __tablename__ = "favorites"
     user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
     recipe_id = Column(Integer, ForeignKey("recipes.recipe_id"), primary_key=True)
-    
+
     user = relationship("User", back_populates="favorites")
+
+class ShoppingList(Base):
+    __tablename__ = "shopping_list"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))  # 어느 사용자의 목록인지 구분
+    item_name = Column(String(100), nullable=False)    # 살 물건 이름
+    is_bought = Column(Boolean, default=False)         # 구매 여부 (체크박스용)
+    created_at = Column(DateTime, default=func.now())  # 등록일
+    
+    ##중복방지
+    __table_args__ = (UniqueConstraint('user_id', 'item_name', name='_user_item_uc'),)
+    user = relationship("User", back_populates="shopping_items")
 
 # 레시피 마스터 데이터
 class Recipe(Base):
