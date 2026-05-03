@@ -664,36 +664,75 @@ async def get_menu_page(request: Request):
 
 # 1. 장보기 목록 페이지 (화면 보여주기)
 @app.get("/shopping")
-def get_shopping_page(request: Request, db: Session = Depends(get_db)):
-    # 세션 등에서 현재 로그인한 유저 정보를 가져와야 합니다 (예시로 user_id=1 사용)
-    items = db.query(ShoppingList).filter(ShoppingList.user_id == 3).all()
+def get_shopping_list(request: Request, db: Session = Depends(get_db)):
+    user_id = request.cookies.get("user_id") 
+    
+    if not user_id:
+        # 로그인 안 되어 있으면 로그인 페이지로 보냄
+        return RedirectResponse(url="/login", status_code=303)
+
+    shopping_list = db.query(models.ShoppingList).filter(
+        models.ShoppingList.user_id == int(user_id)  # 쿠키값은 문자열이라 숫자로 변환
+    ).all()
+
     return templates.TemplateResponse(
-        request=request, 
-        name="shopping.html", 
-        context={"items": items}
+        request=request,              
+        name="shopping.html",          
+        context={"items": shopping_list}  
     )
+@app.post("/shopping/add")
+def add_shopping_item(request: Request, item_name: str = Form(...), db: Session = Depends(get_db)):
+    user_id = request.cookies.get("user_id")
+    
+    if not user_id:
+        return {"error": "로그인이 필요합니다."}
+    # 1. 중복확인
+    existing_item = db.query(models.ShoppingList).filter(
+        models.ShoppingList.user_id == int(user_id),
+        models.ShoppingList.item_name == item_name
+    ).first()
 
-# 2. 아이템 추가 API
-@app.post("/api/shopping/add")
-def add_shopping_item(item_name: str = Form(...), db: Session = Depends(get_db)):
-    new_item = ShoppingList(user_id=3, item_name=item_name)
+    # 2. 만약 이미 있다면, 저장하지 않고 그냥 목록 페이지로 돌려보냅니다.
+    if existing_item:
+        return RedirectResponse(url="/shopping", status_code=303)
+
+    # 3. 새로운 아이템을 만들 때 유저 ID를 함께 저장합니다.
+    new_item = models.ShoppingList(
+        item_name=item_name,
+        user_id=int(user_id), # 👈 이 부분이 중요!
+        is_bought=False
+    )
+    
     db.add(new_item)
-    try:
-        # 일단 DB에 저장을 시도해라!
-        db.commit()
-    except IntegrityError:
-        # 만약 중복 에러(IntegrityError)가 나면 당황하지 말고 없던 일(rollback)로 해라!
-        db.rollback()
-        
+    db.commit()
     return RedirectResponse(url="/shopping", status_code=303)
+from fastapi import Path
 
-# 3. 아이템 삭제 API
-@app.post("/api/shopping/delete/{item_id}")
-def delete_shopping_item(item_id: int, db: Session = Depends(get_db)):
-    item = db.query(ShoppingList).filter(ShoppingList.id == item_id).first()
-    if item:
-        db.delete(item)
-        db.commit()
+@app.post("/shopping/delete/{item_id}")
+def delete_shopping_item(
+    request: Request, 
+    item_id: int = Path(...), 
+    db: Session = Depends(get_db)
+):
+    # 1. 쿠키에서 현재 로그인한 유저 ID 가져오기
+    user_id = request.cookies.get("user_id")
+    
+    if not user_id:
+        return RedirectResponse(url="/login", status_code=303)
+
+    item_to_delete = db.query(models.ShoppingList).filter(
+        models.ShoppingList.id == item_id,
+        models.ShoppingList.user_id == int(user_id) # 👈 본인 확인!
+    ).first()
+
+    if not item_to_delete:
+        return {"error": "삭제 권한이 없거나 존재하지 않는 항목입니다."}
+
+    # 3. 삭제 진행
+    db.delete(item_to_delete)
+    db.commit()
+
+    # 4. 삭제 후 다시 장보기 목록 페이지로 리다이렉트
     return RedirectResponse(url="/shopping", status_code=303)
 
 
