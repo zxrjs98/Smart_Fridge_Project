@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreshKeep - 마이페이지</title>
+    <link rel="stylesheet" href="/static/style.css">
+    
+    <style>
+        body {
+            background-color: #f4f6f8;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            font-family: 'Pretendard', sans-serif;
+        }
+        
+        .app-container {
+            width: 100%;
+            max-width: 480px;
+            min-height: 100vh;
+            background-color: #f9f9f9;
+            box-shadow: 0 0 15px rgba(0,0,0,0.05);
+            position: relative;
+        }
+        
+        .header {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            background-color: #ffffff;
+            border-bottom: 1px solid #eee;
+        }
+        
+        /* 💡 1. 화살표 크기 떡대 키우기 */
+        .back-btn {
+            background-color: #ffffff;
+            border: 1px solid #ccc;
+            border-radius: 10px;     
+            color: #333;
+            font-size: 32px !important; /* 🔥 24px -> 32px로 확 키움! */
+            font-weight: bold;
+            width: 50px;             
+            height: 50px;            
+            margin-right: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            padding: 0;              
+            padding-bottom: 4px;     /* 화살표가 미세하게 위로 쏠려보이는 현상 방지 */
+        }
+        .back-btn:hover { background-color: #f0f0f0; }
+        .header h1 { margin: 0; font-size: 20px; color: #333; }
+
+        .content-area { padding: 20px; }
+        .menu-section { margin-bottom: 30px; }
+        .menu-section h3 { font-size: 13px; color: #888; margin-bottom: 10px; padding-left: 5px; }
+        
+        .menu-list {
+            list-style: none; padding: 0; margin: 0;
+            background: #fff; border: 1px solid #eee; border-radius: 12px; overflow: hidden;
+        }
+        
+        /* 💡 2. 글자 정중앙 강제 고정 (style.css 간섭 완벽 차단) */
+        .menu-list li { 
+            border-bottom: 1px solid #eee; 
+            margin: 0 !important;   
+            padding: 0 !important;  
+            height: 60px !important; /* 🔥 박스 한 칸의 높이를 60px로 콱 박아버림 */
+        }
+        .menu-list li:last-child { border-bottom: none; }
+        
+        .menu-list form { margin: 0; padding: 0; display: block; height: 100%; }
+        
+        .menu-list a, .menu-list button {
+            display: flex !important;       /* 🔥 내용물을 자유자재로 움직일 수 있는 모드 켜기 */
+            align-items: center !important; /* 🔥 세로 기준 정중앙에 꽂아넣기! */
+            justify-content: flex-start !important; /* 가로 기준 왼쪽 정렬 */
+            width: 100% !important;
+            height: 100% !important;        /* 부모(li) 높이 60px에 꽉 맞추기 */
+            padding: 0 20px !important; 
+            margin: 0 !important;       
+            text-decoration: none;
+            color: #333;
+            font-size: 16px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            box-sizing: border-box !important;
+            font-family: inherit;
+        }
+        .menu-list a:hover, .menu-list button:hover { background-color: #f5f5f5; }
+        
+        .text-red { color: #ff4d4f !important; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="header">
+        <button onclick="location.href='/main'" class="back-btn">←</button>
+        <h1>설정 및 마이페이지</h1>
+    </div>
+
+    <div class="content-area">
+        <div class="menu-section">
+            <h3>서비스</h3>
+            <ul class="menu-list">
+                <li><a href="/shopping">🛒 장보기 목록</a></li>
+                <li><a href="#" onclick="alert('준비 중인 기능입니다!')">📅 식단 기록</a></li>
+            </ul>
+        </div>
+
+        <div class="menu-section">
+            <h3>계정 관리</h3>
+            <ul class="menu-list">
+                <li><a href="/profile">👤 내 정보 확인</a></li>
+                <li><a href="/logout">🚪 로그아웃</a></li>
+                <li>
+                    <form action="/withdraw" method="POST" onsubmit="return confirm('정말 탈퇴하시겠습니까? 모든 정보가 영구적으로 삭제됩니다.');">
+                        <button type="submit" class="text-red">🚨 회원 탈퇴</button>
+                    </form>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

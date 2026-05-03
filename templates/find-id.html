@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreshKeep - 아이디 찾기</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        body { background-color: #f4f6f8; margin: 0; display: flex; justify-content: center; font-family: 'Pretendard', sans-serif; }
+        .app-container { width: 100%; max-width: 480px; min-height: 100vh; background-color: #f9f9f9; box-shadow: 0 0 15px rgba(0,0,0,0.05); }
+        .header { display: flex; align-items: center; padding: 15px 20px; background-color: #ffffff; border-bottom: 1px solid #eee; }
+        
+        /* 💡 뒤로가기 버튼: 405 에러를 막기 위해 버튼 형태로 강제 이동시킴 */
+        .back-btn { background-color: #ffffff; border: 1px solid #ccc; border-radius: 10px; color: #333; font-size: 32px !important; width: 50px; height: 50px; margin-right: 15px; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer; padding-bottom: 4px; }
+        .header h1 { margin: 0; font-size: 20px; color: #333; }
+        
+        .content-area { padding: 20px; }
+        .find-box { background: #fff; padding: 25px; border-radius: 12px; border: 1px solid #eee; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; font-size: 14px; color: #666; margin-bottom: 8px; font-weight: bold; }
+        .form-group input { width: 100%; padding: 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; box-sizing: border-box; }
+        
+        /* 💡 작은 빨간 에러 글씨 */
+        .error-text { color: #ff4d4f; font-size: 13px; margin-top: 8px; font-weight: bold; }
+        
+        .submit-btn { width: 100%; padding: 15px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; background: #4A90E2; color: #fff; cursor: pointer; }
+        .submit-btn:hover { background: #357ABD; }
+        
+        /* 💡 성공 메시지 및 다시 보내기 버튼 */
+        .success-msg { text-align: center; padding: 20px 0 10px; border-top: 1px dashed #ddd; margin-top: 20px; }
+        .success-msg p { color: #333; font-size: 15px; margin-top: 0; margin-bottom: 15px; line-height: 1.5; font-weight: bold; }
+        .resend-btn { background: none; border: none; color: #888; text-decoration: underline; cursor: pointer; font-size: 14px; padding: 0; }
+        .resend-btn:hover { color: #333; }
+        
+        .bottom-links { text-align: center; margin-top: 25px; }
+        .bottom-links a { color: #888; font-size: 14px; text-decoration: none; margin: 0 10px; }
+        .bottom-links a:hover { color: #333; text-decoration: underline; }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="header">
+        <!-- 💡 405 방지용: 뒤로가기 누르면 GET 방식으로 깔끔하게 /login으로 이동 -->
+        <button type="button" onclick="location.href='/'" class="back-btn">←</button>
+        <h1>아이디 찾기</h1>
+    </div>
+    <div class="content-area">
+        <div class="find-box">
+            <p style="font-size: 14px; color: #888; margin-top: 0; margin-bottom: 20px;">가입 시 등록한 이메일을 입력해 주세요.</p>
+            
+            <form action="/find-id" method="POST">
+                <div class="form-group">
+                    <label>이메일 주소</label>
+                    <input type="email" name="email" required placeholder="example@email.com" value="{{ input_email or sent_email or '' }}" autocomplete="off">
+                    <!-- 에러일 때 입력칸 바로 밑에 작게 띄움 -->
+                    {% if id_error %}
+                        <div class="error-text">{{ id_error }}</div>
+                    {% endif %}
+                </div>
+                <button type="submit" class="submit-btn">아이디 찾기</button>
+            </form>
+
+            <!-- 💡 이메일이 전송되었을 때만 나타나는 영역 -->
+            {% if email_sent %}
+            <div class="success-msg">
+                <p>입력하신 이메일로 아이디를 발송했습니다.<br>메일함을 확인해 주세요.</p>
+                <!-- 다시 보내기 버튼 (숨겨진 폼으로 이메일 재전송) -->
+                <form action="/find-id" method="POST" style="margin: 0;">
+                    <input type="hidden" name="email" value="{{ sent_email }}">
+                    <button type="submit" class="resend-btn">이메일이 안 오나요? 다시 보내기</button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="bottom-links">
+            <a href="/find-pw">비밀번호를 잊으셨나요?</a>
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,30 @@
+<!-- templates/shopping.html -->
+<div class="shopping-container" style="padding: 20px; max-width: 500px; margin: auto;">
+    <div style="display: flex; align-items: center; margin-bottom: 20px;">
+        <a href="/mypage" style="background-color: #f1f3f5; border: 1px solid #ddd; padding: 8px 12px; border-radius: 5px; color: #333; text-decoration: none; font-size: 14px; font-weight: bold; margin-right: 15px; display: inline-block;">
+            ← 
+        </a>
+        <h2 style="margin: 0;">🛒 장보기 목록</h2>
+    </div>
+    
+    <!-- 아이템 추가 입력창 -->
+    <form action="/api/shopping/add" method="POST" style="display: flex; gap: 10px; margin-bottom: 20px;">
+        <input type="text" name="item_name" placeholder="필요한 재료를 입력하세요" required 
+               style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px;" autocomplete="off">
+        <button type="submit" style="background: #4A90E2; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">추가</button>
+    </form>
+
+    <!-- 목록 리스트 -->
+    <ul style="list-style: none; padding: 0;">
+        {% for item in items %}
+        <li style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #eee;">
+            <span style="font-size: 16px;">{{ item.item_name }}</span>
+            <form action="/api/shopping/delete/{{ item.id }}" method="POST" style="margin: 0;">
+                <button type="submit" style="background-color: #ff4d4d; color: white; border: none; padding: 6px 14px; border-radius: 5px; cursor: pointer; font-size: 13px; font-weight: bold;">
+                    삭제
+                </button>
+            </form>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
