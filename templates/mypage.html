@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FreshKeep - 마이페이지</title>
-    <link rel="stylesheet" href="/static/style.css">
-    
+    <title>FreshKeep - 설정</title>
+
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
         body {
             background-color: #f4f6f8;
@@ -13,120 +14,335 @@
             display: flex;
             justify-content: center;
             font-family: 'Pretendard', sans-serif;
+            height: 100vh;
+            overflow: hidden;
         }
-        
+
         .app-container {
             width: 100%;
             max-width: 480px;
-            min-height: 100vh;
-            background-color: #f9f9f9;
-            box-shadow: 0 0 15px rgba(0,0,0,0.05);
+            height: 100vh;
+            /* 기존 min-height를 height로 고정 */
             position: relative;
+            background-color: #f4f6f8;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.05);
+            margin: 0 auto !important;
+            padding: 0 !important;
+            box-sizing: border-box;
+            overflow: hidden !important;
+            /* 컨테이너 내부에서도 스크롤바가 안 생기도록 막음 */
         }
-        
+
         .header {
             display: flex;
             align-items: center;
-            padding: 15px 20px;
+            height: 60px;
+            padding: 0 20px;
+            box-sizing: border-box;
             background-color: #ffffff;
             border-bottom: 1px solid #eee;
         }
-        
-        /* 💡 1. 화살표 크기 떡대 키우기 */
+
         .back-btn {
-            background-color: #ffffff;
-            border: 1px solid #ccc;
-            border-radius: 10px;     
+            background: transparent;
+            /* 배경을 투명하게 */
+            border: none;
+            /* 테두리 선 제거 */
             color: #333;
-            font-size: 32px !important; /* 🔥 24px -> 32px로 확 키움! */
+            font-size: 28px;
             font-weight: bold;
-            width: 50px;             
-            height: 50px;            
-            margin-right: 15px;
+            width: 40px;
+            height: 40px;
+            margin-right: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             transition: all 0.2s;
-            padding: 0;              
-            padding-bottom: 4px;     /* 화살표가 미세하게 위로 쏠려보이는 현상 방지 */
+            padding: 0;
         }
-        .back-btn:hover { background-color: #f0f0f0; }
-        .header h1 { margin: 0; font-size: 20px; color: #333; }
 
-        .content-area { padding: 20px; }
-        .menu-section { margin-bottom: 30px; }
-        .menu-section h3 { font-size: 13px; color: #888; margin-bottom: 10px; padding-left: 5px; }
-        
-        .menu-list {
-            list-style: none; padding: 0; margin: 0;
-            background: #fff; border: 1px solid #eee; border-radius: 12px; overflow: hidden;
+        /* 누를 때(호버 시) 살짝 둥근 그림자만 지도록 부드럽게 처리 */
+        .back-btn:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+            border-radius: 50%;
         }
-        
-        /* 💡 2. 글자 정중앙 강제 고정 (style.css 간섭 완벽 차단) */
-        .menu-list li { 
-            border-bottom: 1px solid #eee; 
-            margin: 0 !important;   
-            padding: 0 !important;  
-            height: 60px !important; /* 🔥 박스 한 칸의 높이를 60px로 콱 박아버림 */
+
+        .header h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 900;
+            color: #333;
         }
-        .menu-list li:last-child { border-bottom: none; }
-        
-        .menu-list form { margin: 0; padding: 0; display: block; height: 100%; }
-        
-        .menu-list a, .menu-list button {
-            display: flex !important;       /* 🔥 내용물을 자유자재로 움직일 수 있는 모드 켜기 */
-            align-items: center !important; /* 🔥 세로 기준 정중앙에 꽂아넣기! */
-            justify-content: flex-start !important; /* 가로 기준 왼쪽 정렬 */
-            width: 100% !important;
-            height: 100% !important;        /* 부모(li) 높이 60px에 꽉 맞추기 */
-            padding: 0 20px !important; 
-            margin: 0 !important;       
+
+        .content-area {
+            padding: 20px;
+            padding-bottom: 80px;
+        }
+
+        /* 통일된 카드 UI 스타일 */
+        .profile-card {
+            background-color: #ffffff;
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+            margin-bottom: 24px;
+        }
+
+        .profile-avatar {
+            font-size: 30px;
+            background-color: #f0f4f8;
+            border-radius: 50%;
+            width: 56px;
+            height: 56px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-right: 16px;
+        }
+
+        .profile-info h3 {
+            margin: 0 0 4px 0;
+            font-size: 18px;
+            color: #333;
+        }
+
+        .profile-info p {
+            margin: 0;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .edit-profile-btn {
+            margin-left: auto;
+            padding: 8px 12px;
+            background-color: #f0f4f8;
+            color: #333;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .settings-group {
+            margin-bottom: 24px;
+        }
+
+        .settings-title {
+            font-size: 13px;
+            color: #888;
+            margin: 0 0 10px 8px;
+        }
+
+        .settings-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            background-color: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+            overflow: hidden;
+        }
+
+        .settings-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid #f0f0f0;
             text-decoration: none;
             color: #333;
-            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .settings-item:last-child {
+            border-bottom: none;
+        }
+
+        .settings-item:hover {
+            background-color: #fafafa;
+        }
+
+        .settings-item-left {
+            display: flex;
+            align-items: center;
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .settings-icon {
+            font-size: 18px;
+            margin-right: 12px;
+        }
+
+        .settings-arrow {
+            color: #ccc;
+            font-size: 20px;
+        }
+
+        .settings-item-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .time-input {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 15px;
+            color: #333;
+            font-family: inherit;
+            width: 110px;
+            text-align: center;
+        }
+
+        .save-btn {
+            background: #4A90E2;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .text-danger {
+            color: #ff4d4f !important;
+        }
+
+        .form-reset {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            display: block;
+        }
+
+        .btn-reset {
             background: none;
             border: none;
+            width: 100%;
+            text-align: left;
+            padding: 16px 20px;
+            font-size: 15px;
             cursor: pointer;
-            box-sizing: border-box !important;
             font-family: inherit;
+            font-weight: 500;
         }
-        .menu-list a:hover, .menu-list button:hover { background-color: #f5f5f5; }
-        
-        .text-red { color: #ff4d4f !important; }
     </style>
 </head>
+
 <body>
 
-<div class="app-container">
-    <div class="header">
-        <button onclick="location.href='/main'" class="back-btn">←</button>
-        <h1>설정 및 마이페이지</h1>
-    </div>
-
-    <div class="content-area">
-        <div class="menu-section">
-            <h3>서비스</h3>
-            <ul class="menu-list">
-                <li><a href="/shopping">🛒 장보기 목록</a></li>
-                <li><a href="#" onclick="alert('준비 중인 기능입니다!')">📅 식단 기록</a></li>
-            </ul>
+    <div class="app-container">
+        <div class="header">
+            <button onclick="location.href='/main'" class="back-btn">←</button>
+            <h1>설정</h1>
         </div>
 
-        <div class="menu-section">
-            <h3>계정 관리</h3>
-            <ul class="menu-list">
-                <li><a href="/profile">👤 내 정보 확인</a></li>
-                <li><a href="/logout">🚪 로그아웃</a></li>
-                <li>
-                    <form action="/withdraw" method="POST" onsubmit="return confirm('정말 탈퇴하시겠습니까? 모든 정보가 영구적으로 삭제됩니다.');">
-                        <button type="submit" class="text-red">🚨 회원 탈퇴</button>
-                    </form>
-                </li>
-            </ul>
+        <div class="content-area">
+            <div class="settings-group">
+                <h4 class="settings-title">내 계정</h4>
+                <ul class="settings-list">
+                    <li>
+                        <a href="/profile" class="settings-item">
+                            <div class="settings-item-left">
+                                <span class="material-icons">account_circle</span>&nbsp;프로필 수정
+                            </div>
+                            <span class="settings-arrow">›</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="settings-group">
+                <h4 class="settings-title">서비스</h4>
+                <ul class="settings-list">
+                    <li>
+                        <a href="/shopping" class="settings-item">
+                            <div class="settings-item-left">
+                                <span class="material-icons">shopping_cart</span>&nbsp;장보기 목록
+                            </div>
+                            <span class="settings-arrow">›</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" onclick="alert('준비 중인 기능입니다!')" class="settings-item">
+                            <div class="settings-item-left">
+                                <span class="material-icons">edit_calendar</span>&nbsp;식단 기록
+                            </div>
+                            <span class="settings-arrow">›</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="settings-group">
+                <h4 class="settings-title">알림 설정</h4>
+                <ul class="settings-list">
+                    <li class="settings-item" style="cursor: default;">
+                        <div class="settings-item-left">
+                            <span class="material-icons">notifications</span>&nbsp;소비기한 알림
+                        </div>
+                        <div class="settings-item-right">
+                            <input type="time" id="notificationTime" value="09:00" class="time-input">
+                            <button onclick="saveNotificationTime()" class="save-btn">저장</button>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="settings-group">
+                <h4 class="settings-title">계정 관리</h4>
+                <ul class="settings-list">
+                    <li>
+                        <a href="/logout" class="settings-item">
+                            <div class="settings-item-left">
+                                <span class="material-icons">logout</span>&nbsp;로그아웃
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <form action="/withdraw" method="POST"
+                            onsubmit="return confirm('정말 탈퇴하시겠습니까? 모든 정보가 영구적으로 삭제됩니다.');" class="form-reset">
+                            <button type="submit" class="settings-item btn-reset text-danger">
+                                <div class="settings-item-left">
+                                    <span class="material-icons">group_off</span>&nbsp;회원 탈퇴
+                                </div>
+                            </button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
         </div>
     </div>
-</div>
+
+    <script>
+        window.addEventListener('load', async () => {
+            const res = await fetch('/api/notification-time');
+            const data = await res.json();
+            document.getElementById('notificationTime').value = data.time;
+        });
+
+        async function saveNotificationTime() {
+            const timeVal = document.getElementById('notificationTime').value;
+            const res = await fetch('/api/notification-time', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ time: timeVal })
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                alert(`알림 시간이 ${timeVal}로 설정되었습니다.`);
+            }
+        }
+    </script>
 
 </body>
+
 </html>

@@ -16,3 +16,7 @@ Thumbs.db
 
 # ngrok 실행 파일 제외
 ngrok.exe
+
+# vapid key 제외
+private_key.pem
+public_key.pem

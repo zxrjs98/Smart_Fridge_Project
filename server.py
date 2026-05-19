@@ -8,14 +8,14 @@ import string
 import random
 from typing import Optional, List
 from datetime import datetime, date, timedelta
-
+from apscheduler.schedulers.background import BackgroundScheduler
 # ==========================================
 # 🚀 FastAPI 관련 도구
 # ==========================================
 from fastapi import FastAPI, Depends, HTTPException, Request, Form, UploadFile, File
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
+from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse, FileResponse
 
 # ==========================================
 # 💾 데이터베이스 (SQLAlchemy) 관련 도구
@@ -41,6 +41,8 @@ from database.connection import get_db
 from database.models import User, ShoppingList
 from api.items import get_current_user_id, get_optional_user_id
 
+from pywebpush import webpush, WebPushException
+import json
 
 # 환경 변수 로드
 load_dotenv()
@@ -63,6 +65,8 @@ def verify_password(plain_password, hashed_password):
 # 1. 초기 설정 및 보안 구성
 # ---------------------------------------------------------
 app = FastAPI()
+
+scheduler = BackgroundScheduler()
 
 # DB 테이블 자동 생성
 models.Base.metadata.create_all(bind=engine)
@@ -887,6 +891,144 @@ def logout():
     response.delete_cookie("user_id")
     return response
 
+@app.get("/sw.js")
+def get_service_worker():
+    # 프로젝트 루트에 위치한 sw.js 파일을 브라우저에 전달
+    return FileResponse("static/sw.js", media_type="application/javascript")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=5000)
+
+@app.get("/api/notifications/check")
+def check_notifications(request: Request, db: Session = Depends(get_db)):
+    user_id_str = request.cookies.get("user_id")
+    if not user_id_str:
+        raise HTTPException(status_code=401)
+        
+    user_id = int(user_id_str)
+    today = date.today()
+    
+    # 해당 유저의 D-1, D-3 임박 재료 조회
+    items = db.query(models.Item).filter(models.Item.user_id == user_id).all()
+    
+    urgent_list = []
+    for item in items:
+        if item.expiry_date:
+            d_day = (item.expiry_date - today).days
+            if d_day in [1, 3]:
+                urgent_list.append({"name": item.name, "d_day": d_day})
+                
+    if urgent_list:
+        return {"has_urgent": True, "items": urgent_list}
+    return {"has_urgent": False, "items": []}
+
+@app.get("/api/vapid-public-key")
+def get_vapid_public_key():
+    return {"public_key": VAPID_PUBLIC_KEY}
+
+@app.post("/api/notifications/subscribe")
+async def subscribe_notifications(request: Request, db: Session = Depends(get_db)):
+    user_id = request.cookies.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=401)
+    
+    subscription_info = await request.json()
+    
+    existing = db.query(models.PushSubscription).filter(
+        models.PushSubscription.user_id == int(user_id)
+    ).first()
+    
+    if existing:
+        existing.subscription_info = json.dumps(subscription_info)
+    else:
+        new_sub = models.PushSubscription(
+            user_id=int(user_id),
+            subscription_info=json.dumps(subscription_info)
+        )
+        db.add(new_sub)
+    
+    db.commit()
+    return {"status": "success"}
+
+VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY")
+VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY")
+
+# 기존에 만든 BackgroundScheduler 내부 로직 고도화
+def check_expiry_and_queue_notifications():
+    db: Session = next(get_db())
+    try:
+        now = datetime.now().strftime("%H:%M")  # 현재 시간 (예: "09:00")
+        today = date.today()
+
+        # 알림 시간이 지금인 유저만 조회
+        users = db.query(models.User).filter(
+            models.User.notification_time == now
+        ).all()
+
+        for user in users:
+            items = db.query(models.Item).filter(
+                models.Item.user_id == user.id,
+                models.Item.expiry_date.isnot(None)
+            ).all()
+
+            urgent_items = []
+            for item in items:
+                d_day = (item.expiry_date - today).days
+                if d_day in [0, 1, 2, 3]:
+                    if d_day == 0:
+                        urgent_items.append(f"{item.name}(D-Day)")
+                    else:
+                        urgent_items.append(f"{item.name}(D-{d_day})")
+
+            if not urgent_items:
+                continue
+
+            push_sub = db.query(models.PushSubscription).filter(
+                models.PushSubscription.user_id == user.id
+            ).first()
+
+            if push_sub:
+                sub_info = json.loads(push_sub.subscription_info)
+                try:
+                    webpush(
+                        subscription_info=sub_info,
+                        data=json.dumps({
+                            "title": "FreshKeep 소비기한 알림",
+                            "body": f"임박 재료: {', '.join(urgent_items)}"
+                        }),
+                        vapid_private_key=VAPID_PRIVATE_KEY,
+                        vapid_claims={"sub": "mailto:실제이메일@gmail.com"}
+                    )
+                    print(f"유저 {user.id} 푸시 발송 성공")
+                except WebPushException as ex:
+                    print(f"푸시 발송 실패: {ex}")
+    finally:
+        db.close()
+
+@app.post("/api/notification-time")
+async def update_notification_time(request: Request, db: Session = Depends(get_db)):
+    user_id = request.cookies.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=401)
+    
+    data = await request.json()
+    time_value = data.get("time")  # "09:00" 형식
+    
+    user = db.query(models.User).filter(models.User.id == int(user_id)).first()
+    user.notification_time = time_value
+    db.commit()
+    return {"status": "success"}
+
+@app.get("/api/notification-time")
+def get_notification_time(request: Request, db: Session = Depends(get_db)):
+    user_id = request.cookies.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=401)
+    
+    user = db.query(models.User).filter(models.User.id == int(user_id)).first()
+    return {"time": user.notification_time or "09:00"}
+
+scheduler = BackgroundScheduler()
+scheduler.add_job(check_expiry_and_queue_notifications, 'interval', minutes=1)
+scheduler.start()
