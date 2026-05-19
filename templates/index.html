@@ -44,6 +44,13 @@
             /* 헤더 높이만큼 확보 필수 */
         }
 
+        #favoritePage {
+            height: 100vh;
+            overflow-y: auto;
+            padding-top: 120px;
+            overscroll-behavior: none;
+        }
+
         .app-container {
             max-width: 600px;
             margin: 0 auto;
@@ -868,8 +875,8 @@
                 </div>
                 <div id="sortMenu" class="sort-menu">
                     <div onclick="selectSort('match', '보유율 높은 순')">보유율 높은 순</div>
-                    <div onclick="selectSort('min', '필요재료 적은 순')">필요 재료 적은 순</div>
-                    <div onclick="selectSort('max', '필요재료 많은 순')">필요 재료 많은 순</div>
+                    <div onclick="selectSort('min', '필요 재료 적은 순')">필요 재료 적은 순</div>
+                    <div onclick="selectSort('max', '필요 재료 많은 순')">필요 재료 많은 순</div>
                 </div>
             </div>
         </div>
@@ -893,15 +900,15 @@
 
                 <div id="favSortMenu" class="sort-menu" style="right: 16px; top: 40px;">
                     <div onclick="selectFavSort('match', '보유율 높은 순')">보유율 높은 순</div>
-                    <div onclick="selectFavSort('min', '필요재료 적은 순')">필요 재료 적은 순</div>
-                    <div onclick="selectFavSort('max', '필요재료 많은 순')">필요 재료 많은 순</div>
+                    <div onclick="selectFavSort('min', '필요 재료 적은 순')">필요 재료 적은 순</div>
+                    <div onclick="selectFavSort('max', '필요 재료 많은 순')">필요 재료 많은 순</div>
                 </div>
             </div>
         </div>
 
-        <div style="height: 120px; width: 100%;"></div>
+        <div style="height: 0px; width: 100%;"></div>
 
-        <div id="favoriteList" style="padding: 0 15px 120px 15px !important;"></div>
+        <div id="favoriteList" style="padding: 0 15px 220px 15px !important;"></div>
     </div>
 
     <nav class="bottom-nav">
@@ -1058,7 +1065,7 @@
         function selectSort(type, text) {
             currentSortType = type;
             document.getElementById('currentSortText').innerText = text;
-            document.getElementById('sortMenu').style.display = 'none';
+            closeAllSortMenus();
             filterRecipes(); // 정렬 변경 시 즉시 재렌더링
         }
 
@@ -1310,7 +1317,9 @@
 
             // 상단 타이틀 및 페이지 섹션 설정
             const titleEl = document.getElementById('topTitle');
-            const sections = ['refrigeratorPage', 'recipePage', 'favoritePage'];
+
+            // sections 배열에 'myPage' 추가
+            const sections = ['refrigeratorPage', 'recipePage', 'favoritePage', 'myPage'];
 
             // 모든 섹션 숨김 처리
             sections.forEach(s => {
@@ -1346,19 +1355,19 @@
                 document.getElementById('favoritePage').style.display = 'block';
                 if (fab) fab.style.display = 'none';
 
-                // 🌟 [수정 구간 시작]
-                // 단순히 filter와 render만 하면 정렬이 무시됩니다.
-                // 아까 정의한 정렬 함수를 직접 호출해서 "보유율 순"으로 강제 정렬시킵니다.
                 if (typeof selectFavSort === 'function') {
                     selectFavSort('match', '보유율 높은 순');
                 } else {
-                    // 혹시라도 함수가 없을 때를 대비한 안전 장치
                     const favList = allRecipes.filter(r => r.favorite);
                     renderRecipeList(favList, 'favoriteList');
                 }
+
+            } else if (tabName === 'mypage') {
+                titleEl.innerText = "설정 및 마이페이지";
+                document.getElementById('myPage').style.display = 'block';
+                if (fab) fab.style.display = 'none'; // 마이페이지에서는 FAB 숨김
             }
         }
-
         // 시스템 및 팝업 제어
         window.onpopstate = function (event) {
             // 상세 모달이 열려있는 상태에서 뒤로가기를 누르면 해시가 사라짐을 감지
@@ -1377,8 +1386,8 @@
         };
 
         function openSettings() {
-            window.location.href = "/mypage"; 
-}
+            window.location.href = "/mypage";
+        }
 
         // FAB 및 페이지 전환
         function toggleFabMenu() {
@@ -1544,7 +1553,7 @@
         function selectFavSort(type, text) {
             currentFavSortType = type;
             document.getElementById('currentFavSortText').innerText = text;
-            document.getElementById('favSortMenu').style.display = 'none';
+            closeAllSortMenus();
             renderFavorites();
         }
 
@@ -1574,7 +1583,7 @@
             renderRecipeList(favList, 'favoriteList');
         }
     </script>
-    
+
     <script>
         // 내 재료 칩 렌더링 함수
         function renderMyIngChips() {
@@ -1683,7 +1692,7 @@
         // 냉장고 정렬 방식 선택 및 실행
         function selectFridgeSort(type, text) {
             document.getElementById('currentFridgeSortText').innerText = text;
-            document.getElementById('fridgeSortMenu').style.display = 'none';
+            closeAllSortMenus();
 
             const container = document.getElementById('itemList');
             const cards = Array.from(container.getElementsByClassName('item-card'));
@@ -1725,15 +1734,45 @@
                 card.style.display = isVisible ? 'flex' : 'none';
             });
         }
-        // 기존 스크립트에 추가
-        window.addEventListener('click', function (e) {
-            const fridgeMenu = document.getElementById('fridgeSortMenu');
-            const fridgeTrigger = document.querySelector('.sort-trigger');
 
-            if (fridgeMenu && !fridgeTrigger.contains(e.target) && !fridgeMenu.contains(e.target)) {
-                fridgeMenu.style.display = 'none';
+        // 모든 정렬 메뉴 닫기
+        function closeAllSortMenus() {
+            document.getElementById('fridgeSortMenu').style.display = 'none';
+            document.getElementById('sortMenu').style.display = 'none';
+            document.getElementById('favSortMenu').style.display = 'none';
+            document.getElementById('sortOverlay').style.display = 'none';
+        }
+
+        // 정렬 메뉴 열 때 오버레이도 같이 열기
+        function toggleFridgeSortMenu() {
+            const menu = document.getElementById('fridgeSortMenu');
+            const isOpen = menu.style.display === 'flex';
+            closeAllSortMenus();
+            if (!isOpen) {
+                menu.style.display = 'flex';
+                document.getElementById('sortOverlay').style.display = 'block';
             }
-        });
+        }
+
+        function toggleSortMenu() {
+            const menu = document.getElementById('sortMenu');
+            const isOpen = menu.style.display === 'flex';
+            closeAllSortMenus();
+            if (!isOpen) {
+                menu.style.display = 'flex';
+                document.getElementById('sortOverlay').style.display = 'block';
+            }
+        }
+
+        function toggleFavSortMenu() {
+            const menu = document.getElementById('favSortMenu');
+            const isOpen = menu.style.display === 'flex';
+            closeAllSortMenus();
+            if (!isOpen) {
+                menu.style.display = 'flex';
+                document.getElementById('sortOverlay').style.display = 'block';
+            }
+        }
 
         function updateTabCounts() {
             const cards = document.querySelectorAll('#itemList .item-card');
@@ -1762,9 +1801,66 @@
             document.getElementById('count-none').innerText = counts.none;
         }
 
+        // [초기화 구역에 삽입]
+        // index.html 스크립트 구역의 window load 이벤트 수정
+        // index.html의 서비스 워커 등록 및 권한 요청 구역 수정
+        window.addEventListener('load', async () => {
+            if ('serviceWorker' in navigator && 'PushManager' in window) {
+
+                // ✅ API에서 공개키 가져오기
+                const res = await fetch('/api/vapid-public-key');
+                const data = await res.json();
+                const VAPID_PUBLIC_KEY = data.public_key;
+
+                function urlBase64ToUint8Array(base64String) {
+                    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+                    const rawData = atob(base64);
+                    return new Uint8Array([...rawData].map(c => c.charCodeAt(0)));
+                }
+
+                navigator.serviceWorker.register('/sw.js')
+                    .then(async function (swReg) {
+                        console.log('서비스 워커 등록 성공:', swReg);
+
+                        const permission = await Notification.requestPermission();
+                        if (permission === 'granted') {
+                            let subscription = await swReg.pushManager.getSubscription();
+                            if (!subscription) {
+                                subscription = await swReg.pushManager.subscribe({
+                                    userVisibleOnly: true,
+                                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                                });
+                            }
+
+                            await fetch('/api/notifications/subscribe', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(subscription)
+                            });
+                            console.log('서버에 푸시 알림 구독 등록 완료');
+                        }
+                    })
+                    .catch(function (error) {
+                        console.error('서비스 워커 또는 푸시 등록 실패:', error);
+                    });
+            }
+        });
+
         // 페이지 로드 시 최초 1회 실행
         document.addEventListener('DOMContentLoaded', updateTabCounts);
+
+        // 스크롤 시 모든 정렬 메뉴 닫기
+        ['refrigeratorPage', 'recipePage', 'favoritePage'].forEach(id => {
+            document.getElementById(id).addEventListener('scroll', function () {
+                document.getElementById('fridgeSortMenu').style.display = 'none';
+                document.getElementById('sortMenu').style.display = 'none';
+                document.getElementById('favSortMenu').style.display = 'none';
+            });
+        });
     </script>
+    <div id="sortOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index: 105;"
+        onclick="closeAllSortMenus()"></div>
 </body>
 
 </html>

@@ -10,7 +10,7 @@ class User(Base):
     username = Column(String(50), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     email = Column(String(100), unique=True, index=True, nullable=True)
-    
+    notification_time = Column(String(5), default="09:00")
     items = relationship("Item", back_populates="owner", cascade="all, delete-orphan")
     favorites = relationship("Favorite", back_populates="user", cascade="all, delete-orphan")
     shopping_items = relationship("ShoppingList", back_populates="user", cascade="all, delete-orphan")
@@ -67,3 +67,12 @@ class MasterIngredient(Base):
     ing_id = Column(Integer, primary_key=True, index=True)
     name = Column(String(50), unique=True, nullable=False)
     is_seasoning = Column(Boolean, default=False)
+
+# 푸시 알림 구독 정보
+class PushSubscription(Base):
+    __tablename__ = "push_subscriptions"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
+    subscription_info = Column(Text, nullable=False)  # JSON 문자열로 저장
+    
+    user = relationship("User")
