@@ -22,6 +22,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse, FileResponse
 from fastapi import Body, HTTPException
+
 # ==========================================
 # 💾 데이터베이스 및 기능 도구
 # ==========================================
@@ -29,12 +30,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from database.connection import engine, get_db
 import database.models as models
-
 from passlib.context import CryptContext
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
-
 from pywebpush import webpush, WebPushException
 import requests
 from openai import OpenAI
@@ -408,7 +407,7 @@ async def scan_receipt(
 
     invoke_url = os.getenv("OCR_INVOKE_URL")
     secret_key = os.getenv("OCR_SECRET_KEY")
-    openai_api_key = os.getenv("OPENAI_API_KEY") # 🔥 OpenAI API 키 로드
+    openai_api_key = os.getenv("OPENAI_API_KEY") # OpenAI API 키 로드
 
     if not invoke_url or not secret_key:
         return {"status": "error", "message": "네이버 OCR API 키가 없습니다. .env 파일을 확인해주세요!"}
@@ -417,7 +416,7 @@ async def scan_receipt(
 
     try:
         # -------------------------------------------------------------
-        # 1단계: 네이버 OCR로 영수증 스캔 (기존과 동일)
+        # 네이버 OCR로 영수증 스캔 
         # -------------------------------------------------------------
         image_bytes = await receipt.read()
         ext = receipt.filename.split('.')[-1] if '.' in receipt.filename else 'png'
@@ -439,7 +438,7 @@ async def scan_receipt(
         response = requests.post(invoke_url, headers=headers, data=payload, files=files)
         result = response.json()
 
-        # 영수증에서 뽑아낸 '날것의' 텍스트 리스트 만들기
+        # 영수증에서 뽑아낸 텍스트 리스트 
         raw_items = []
         if 'images' in result and len(result['images']) > 0:
             image_data = result['images'][0]
@@ -453,15 +452,15 @@ async def scan_receipt(
                             raw_items.append(name)
 
         if not raw_items:
-            # 영수증에서 아무것도 못 읽었을 때의 방어 로직
+            # 영수증에서 아무것도 못 읽었을 때
             return {"status": "success", "items": [{"name": "인식 불가", "expiry_date": ""}], "saved_count": 0}
 
         # -------------------------------------------------------------
-        # 🧠 2단계: OpenAI (gpt-4o-mini) LLM으로 초지능 데이터 세탁!
+        # OpenAI
         # -------------------------------------------------------------
         client = OpenAI(api_key=openai_api_key)
 
-        # AI를 조종하는 프롬프트 (여기에 규칙을 마음껏 추가할 수 있습니다!)
+        # AI 프롬프트 (여기에 규칙을 마음껏 추가할 것)
         system_prompt = """
         너는 스마트 냉장고의 식재료 분류 AI 데이터 엔지니어 역할을 맡고 있어.
         사용자가 영수증의 상품명 리스트를 주면, 요리에 쓰이는 '표준 식재료명'으로만 정제해서 JSON 형태로 반환해.
@@ -473,7 +472,6 @@ async def scan_receipt(
         4. 응답은 반드시 {"items": ["돼지고기", "우유", "칼국수면"]} 같은 형태의 JSON 포맷으로 대답해야 해.
         """
 
-        # GPT에게 날것의 데이터를 던지고 결과 받기 (가장 빠르고 저렴한 gpt-4o-mini 모델 사용)
         completion = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -483,12 +481,11 @@ async def scan_receipt(
             response_format={"type": "json_object"}
         )
 
-        # AI가 예쁘게 포장해서 준 JSON 까보기
         ai_response = json.loads(completion.choices[0].message.content)
         clean_item_names = ai_response.get("items", [])
 
         # -------------------------------------------------------------
-        # 3단계: 정제된 이름으로 DB에 저장하기
+        # DB에 저장
         # -------------------------------------------------------------
         saved_count = 0
         final_parsed_items = []
