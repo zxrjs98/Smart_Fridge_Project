@@ -1,2 +1,3 @@
-# Smart_Fridge_Project
+p# Smart_Fridge_Project
 졸업 프로젝트
+ 

@@ -18,5 +18,11 @@ Thumbs.db
 ngrok.exe
 
 # vapid key 제외
+
 private_key.pem
 public_key.pem
+
+.env
+.venv/
+__pycache__/
+.DS_Store

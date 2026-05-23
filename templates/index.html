@@ -489,13 +489,8 @@
         }
 
         @keyframes slideUp {
-            from {
-                transform: translate(-50%, 100%);
-            }
-
-            to {
-                transform: translate(-50%, 0);
-            }
+            from { transform: translate(-50%, 100%); }
+            to { transform: translate(-50%, 0); }
         }
 
         /* 레시피 상단 고정 영역 */
@@ -635,27 +630,10 @@
         }
 
         /* 내 냉장고 탭 바 스크롤 숨기기 */
-        #fridgeTabs::-webkit-scrollbar {
-            display: none;
-            /* Chrome, Safari, Opera */
-        }
-
-        #fridgeTabs {
-            -ms-overflow-style: none;
-            /* IE and Edge */
-            scrollbar-width: none;
-            /* Firefox */
-        }
-
-        /* 레시피 탭의 재료 칩 영역도 같이 숨기려면 추가 */
-        #myIngChips::-webkit-scrollbar {
-            display: none;
-        }
-
-        #myIngChips {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
+        #fridgeTabs::-webkit-scrollbar { display: none; }
+        #fridgeTabs { -ms-overflow-style: none; scrollbar-width: none; }
+        #myIngChips::-webkit-scrollbar { display: none; }
+        #myIngChips { -ms-overflow-style: none; scrollbar-width: none; }
 
         .detail-body {
             flex: 1;
@@ -672,10 +650,7 @@
             margin-bottom: 20px;
         }
 
-        .detail-section {
-            margin-bottom: 25px;
-        }
-
+        .detail-section { margin-bottom: 25px; }
         .detail-section h4 {
             font-size: 1.1rem;
             color: var(--text-main);
@@ -720,18 +695,12 @@
             transition: all 0.2s;
             display: inline-block;
             flex-shrink: 0;
-            /* 칩이 찌그러지지 않게 함 */
         }
 
         .ing-filter-chip.active {
             background: var(--primary-color);
             color: white;
             box-shadow: 0 3px 10px rgba(74, 144, 226, 0.3);
-        }
-
-        /* 가로 스크롤바 숨기기 */
-        #myIngChips::-webkit-scrollbar {
-            display: none;
         }
 
         /* 탭 버튼 기본 스타일 */
@@ -748,17 +717,11 @@
             flex-shrink: 0;
         }
 
-        /* 활성화된 탭 */
         .f-tab.active {
             background: var(--primary-color);
             color: white !important;
             border-color: var(--primary-color);
             box-shadow: 0 4px 10px rgba(74, 144, 226, 0.2);
-        }
-
-        /* 탭 바 스크롤바 숨기기 */
-        .fridge-tab-bar::-webkit-scrollbar {
-            display: none;
         }
 
         .count-badge {
@@ -768,7 +731,6 @@
             font-weight: 500;
         }
 
-        /* 활성화된 탭에서는 숫자가 더 잘 보이게 */
         .sort-chip.active .count-badge {
             opacity: 1;
             font-weight: 800;
@@ -787,16 +749,11 @@
         <div class="recipe-sticky-header" style="height: auto; padding: 10px 16px 12px 16px;">
             <div id="fridgeTabs"
                 style="display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 12px 0; white-space: nowrap; -webkit-overflow-scrolling: touch;">
-                <div class="sort-chip active" onclick="filterFridge('all', this)">전체(<span class="count-badge"
-                        id="count-all">0</span>)</div>
-                <div class="sort-chip" onclick="filterFridge('expired', this)">만료(<span class="count-badge"
-                        id="count-expired">0</span>)</div>
-                <div class="sort-chip" onclick="filterFridge('urgent', this)">임박(<span class="count-badge"
-                        id="count-urgent">0</span>)</div>
-                <div class="sort-chip" onclick="filterFridge('safe', this)">여유(<span class="count-badge"
-                        id="count-safe">0</span>)</div>
-                <div class="sort-chip" onclick="filterFridge('none', this)">미입력(<span class="count-badge"
-                        id="count-none">0</span>)</div>
+                <div class="sort-chip active" onclick="filterFridge('all', this)">전체(<span class="count-badge" id="count-all">0</span>)</div>
+                <div class="sort-chip" onclick="filterFridge('expired', this)">만료(<span class="count-badge" id="count-expired">0</span>)</div>
+                <div class="sort-chip" onclick="filterFridge('urgent', this)">임박(<span class="count-badge" id="count-urgent">0</span>)</div>
+                <div class="sort-chip" onclick="filterFridge('safe', this)">여유(<span class="count-badge" id="count-safe">0</span>)</div>
+                <div class="sort-chip" onclick="filterFridge('none', this)">미입력(<span class="count-badge" id="count-none">0</span>)</div>
             </div>
 
             <div class="sort-container" style="display: flex; justify-content: flex-end;">
@@ -817,33 +774,32 @@
             {% if items %}
             {% for item in items %}
             <div class="item-card" onclick="triggerDatePicker(event, this)"
-                data-dday="{{ item.d_day if item.d_day is not none else '9999' }}" data-id="{{ loop.index0 }}">
+                data-dday="{{ item.d_day if item.d_day is not none else '9999' }}" 
+                data-db-id="{{ item.id }}">
 
                 <div class="info">
                     <strong class="name">{{ item.name }}</strong>
                     <div style="position: relative;">
                         <div style="display: flex; align-items: center; gap: 4px;">
-                            <span class="material-icons"
-                                style="font-size: 14px; color: var(--text-sub);">calendar_month</span>
+                            <span class="material-icons" style="font-size: 14px; color: var(--text-sub);">calendar_month</span>
                             <span class="expiry-text">
                                 {% if item.expiry_date %}{{item.expiry_date}}{% else %}소비기한 입력 전{% endif %}
                             </span>
                         </div>
                         <input type="date" value="{{ item.expiry_date if item.expiry_date else '' }}"
                             style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;"
-                            onchange="updateDate('{{ item.name }}', this.value)">
+                            onchange="updateDate('{{ item.id }}', this.value)">
                     </div>
 
                     {% if item.expiry_date and item.d_day is not none %}
                     <div style="font-size: 0.75rem; font-weight: 800; margin-top: 2px;">
-                        {% if item.d_day < 0 %} <span style="color: var(--urgent-color);">기한 만료 (D+{{ -item.d_day
-                            }})</span>
-                            {% elif item.d_day <= 3 %} <span style="color: var(--warning-color);">
-                                {% if item.d_day == 0 %}D-Day{% else %}D-{{ item.d_day }}{% endif %}
-                                </span>
-                                {% else %}
-                                <span style="color: var(--primary-color);">D-{{ item.d_day }}</span>
-                                {% endif %}
+                        {% if item.d_day < 0 %} <span style="color: var(--urgent-color);">기한 만료 (D+{{ -item.d_day }})</span>
+                        {% elif item.d_day <= 3 %} <span style="color: var(--warning-color);">
+                            {% if item.d_day == 0 %}D-Day{% else %}D-{{ item.d_day }}{% endif %}
+                        </span>
+                        {% else %}
+                        <span style="color: var(--primary-color);">D-{{ item.d_day }}</span>
+                        {% endif %}
                     </div>
                     {% endif %}
                 </div>
@@ -880,17 +836,13 @@
                 </div>
             </div>
         </div>
-
         <div style="height: 70px; width: 100%;"></div>
-
         <div id="recipeList"></div>
     </div>
 
     <div id="favoritePage" style="display:none; width: 100%;">
-
         <div class="recipe-sticky-header"
             style="position: fixed; top: 60px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 600px; background: white; z-index: 4000; padding: 10px 16px 12px 16px; border-bottom: 1px solid #f1f3f5; box-sizing: border-box;">
-
             <div class="sort-container" style="display: flex; justify-content: flex-end;">
                 <div class="sort-trigger" onclick="toggleFavSortMenu()">
                     <span id="currentFavSortText"
@@ -905,9 +857,7 @@
                 </div>
             </div>
         </div>
-
         <div style="height: 0px; width: 100%;"></div>
-
         <div id="favoriteList" style="padding: 0 15px 220px 15px !important;"></div>
     </div>
 
@@ -926,12 +876,10 @@
                 <span class="material-icons" style="font-size: 18px; color: #34a853;">document_scanner</span>
                 영수증 스캔
             </button>
-
             <button onclick="openAddPage()" style="display: flex; align-items: center; gap: 8px;">
                 <span class="material-icons" style="font-size: 18px; color: var(--primary-color);">add</span>
                 재료 추가
             </button>
-
             <button onclick="openDeletePage()" style="display: flex; align-items: center; gap: 8px; color: #e74c3c;">
                 <span class="material-icons" style="font-size: 18px; color: #e74c3c;">remove</span>
                 재료 삭제
@@ -952,6 +900,7 @@
                 onclick="saveItems()" disabled>0개 추가</button>
         </div>
     </div>
+
     <div id="deletePage">
         <div class="modal-header"><button onclick="closeDeletePage()">✕</button>
             <h3>재료 삭제</h3>
@@ -963,6 +912,7 @@
         <div class="selection-footer"><button class="main-action-btn" id="delConfirmBtn" onclick="deleteSelectedItems()"
                 disabled>0개 삭제</button></div>
     </div>
+
     <div id="recipeDetailModal">
         <div class="modal-header">
             <button onclick="closeRecipeDetail()">✕</button>
@@ -998,27 +948,21 @@
     </div>
     <style>
         @keyframes spin {
-            100% {
-                transform: rotate(360deg);
-            }
+            100% { transform: rotate(360deg); }
         }
     </style>
 
     <script>
-        // 스캔 버튼을 눌렀을 때 실행되는 함수
         function triggerCamera() {
-            toggleFabMenu(); // 열려있는 + 메뉴 닫기
-            document.getElementById('receiptFile').click(); // 숨겨진 파일 첨부 창 열기
+            toggleFabMenu(); 
+            document.getElementById('receiptFile').click(); 
         }
 
-        // 스캔 결과 처리 함수
         async function uploadReceipt() {
             const fileInput = document.getElementById('receiptFile');
             if (!fileInput.files.length) return;
 
-            // 로딩 모달 띄우기
             document.getElementById('loadingModal').style.display = 'flex';
-
             const formData = new FormData();
             formData.append('receipt', fileInput.files[0]);
 
@@ -1026,50 +970,39 @@
                 const response = await fetch('/scan_receipt', { method: 'POST', body: formData });
                 const data = await response.json();
 
-                if (response.ok) {
-                    let count = 0;
-                    for (let item of data.items) {
-                        await fetch('/items', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ name: item.name, expiry_date: item.expiry_date })
-                        });
-                        count++;
-                    }
+                if (response.ok && data.status === 'success') {
+                    const count = data.saved_count || 0;
                     alert(`${count}개의 재료가 스캔되어 냉장고에 들어갔습니다`);
                     location.reload();
                 } else {
-                    alert("스캔 실패: " + (data.error || "알 수 없는 오류"));
+                    alert("스캔 실패: " + (data.message || "알 수 없는 오류"));
                     document.getElementById('loadingModal').style.display = 'none';
                 }
             } catch (e) {
                 alert("서버 연결에 실패했습니다.");
                 document.getElementById('loadingModal').style.display = 'none';
             }
-            fileInput.value = ''; // 초기화
+            fileInput.value = ''; 
         }
 
-        let allRecipes = []; // DB 연동을 위한 전역 변수
+        let allRecipes = []; 
         let selectedItems = new Set();
         let itemsToDelete = new Set();
         let currentSortType = 'match';
         let selectedSearchIngs = new Set();
 
-        // 정렬 메뉴 토글
         function toggleSortMenu() {
             const menu = document.getElementById('sortMenu');
             menu.style.display = (menu.style.display === 'flex') ? 'none' : 'flex';
         }
 
-        // 정렬 방식 선택
         function selectSort(type, text) {
             currentSortType = type;
             document.getElementById('currentSortText').innerText = text;
             closeAllSortMenus();
-            filterRecipes(); // 정렬 변경 시 즉시 재렌더링
+            filterRecipes(); 
         }
 
-        // 이름 검색 및 정렬 통합 필터
         function filterRecipes() {
             const searchInput = document.getElementById('recipeSearch');
             if (!allRecipes || allRecipes.length === 0 || !searchInput) return;
@@ -1079,18 +1012,13 @@
             const myIngs = Array.from(nameElements).map(el => el.innerText.trim());
 
             let filtered = allRecipes.filter(recipe => {
-                // 이름 검색 매칭 여부
                 const matchesName = recipe.name.toLowerCase().includes(keyword);
-
-                // 선택된 칩 재료가 모두 포함되어 있는지 확인 (AND 필터링)
                 const matchesSelectedIngs = Array.from(selectedSearchIngs).every(selected =>
                     recipe.ingredients.includes(selected)
                 );
-
                 return matchesName && matchesSelectedIngs;
             });
 
-            // 정렬 적용
             filtered.sort((a, b) => {
                 const rA = a.ingredients.filter(i => myIngs.includes(i)).length / a.ingredients.length;
                 const rB = b.ingredients.filter(i => myIngs.includes(i)).length / b.ingredients.length;
@@ -1103,20 +1031,16 @@
             renderRecipeList(filtered, 'recipeList');
         }
 
-        // DB 연동: 레시피 로드
         async function fetchAllRecipes() {
             try {
                 const res = await fetch('/api/recipes');
                 allRecipes = await res.json();
-                // 현재 설정된 정렬 방식으로 화면 갱신
                 sortRecipes(currentSortType);
             } catch (e) { console.error("데이터 로드 실패", e); }
         }
 
-        // 레시피 렌더링 엔진
         function renderRecipeList(recipes, targetId) {
             const container = document.getElementById(targetId);
-            // 냉장고에 있는 재료 목록 실시간 추출
             const nameElements = document.querySelectorAll('#refrigeratorPage .name');
             const myIngs = nameElements ? Array.from(nameElements).map(el => el.innerText.trim()) : [];
 
@@ -1125,7 +1049,6 @@
                 return;
             }
 
-            // 렌더링 시작
             container.innerHTML = recipes.map(recipe => {
                 const have = recipe.ingredients.filter(i => myIngs.includes(i));
                 const rate = Math.round((have.length / recipe.ingredients.length) * 100);
@@ -1166,29 +1089,23 @@
             const recipe = allRecipes.find(r => r.id == id);
             if (!recipe) return;
 
-            // 기본 정보 세팅
             document.getElementById('modalRecipeName').innerText = recipe.name;
             document.getElementById('modalRecipeImg').src = recipe.image_url || 'https://via.placeholder.com/300?text=No+Image';
 
             let rawIngs = (recipe.original_ingredients || "재료 정보가 없습니다.").trim();
-
-            // 자동 콜론 대상 키워드 목록
             const keywords = ['재료', '곁들임', '밑간', '드레싱', '양념장', '양념', '고명', '필링', '토핑'];
 
-            // 각 키워드 뒤에 콜론이 없으면 자동으로 삽입 (정규표현식 동적 생성)
             keywords.forEach(word => {
-                const regex = new RegExp(`${word}(?!\\s*:)`, 'g'); // 단어 뒤에 바로 콜론이 없는 경우만 찾음
+                const regex = new RegExp(`${word}(?!\\s*:)`, 'g'); 
                 rawIngs = rawIngs.replace(regex, `${word} :`);
             });
 
-            // 3. 기호(●, -, *, v) 앞에서 줄바꿈 (첫 줄 제외)
             const formattedIngs = rawIngs.replace(/(?!^)([●\-*v])/g, '\n$1');
 
             document.getElementById('modalIngredients').innerHTML = `
         <div style="background: #f8f9fa; border-radius: 12px; padding: 15px; line-height: 1.8; color: #495057; font-size: 15px; border: 1px solid #e9ecef; white-space: pre-line;">${formattedIngs}</div>
     `;
 
-            // [조리법] 평문 자동 단계 분리
             const rawInstructions = recipe.instructions || "";
             if (rawInstructions.trim().length > 0) {
                 const steps = rawInstructions.split('.').map(s => s.trim()).filter(s => s.length > 1);
@@ -1213,16 +1130,13 @@
         }
 
         function closeRecipeDetail() {
-            // 현재 해시가 #detail이면 히스토리를 한 칸 뒤로 보냄
             if (window.location.hash === "#detail") {
                 history.back();
             } else {
-                // 이미 해시가 사라진 상태라면 모달만 숨깁니다.
                 document.getElementById('recipeDetailModal').style.display = 'none';
             }
         }
 
-        // 정렬 & 즐겨찾기 로직
         function sortRecipes(type, el) {
             currentSortType = type;
             if (el) { document.querySelectorAll('.sort-chip').forEach(c => c.classList.remove('active')); el.classList.add('active'); }
@@ -1242,19 +1156,14 @@
 
         window.onload = async () => {
             console.log("데이터 로딩 시작...");
-
-            // 레시피 데이터 먼저 가져오기
             await fetchAllRecipes();
 
             if (allRecipes && allRecipes.length > 0) {
                 selectSort('match', '보유율 높은 순');
             }
-
             if (typeof renderFavorites === 'function') {
                 renderFavorites();
             }
-
-            // DOM이 완전히 브라우저에 안착할 시간을 0.1초만 줍니다. (무한로딩 방지)
             setTimeout(() => {
                 if (allRecipes && allRecipes.length > 0) {
                     filterRecipes();
@@ -1263,27 +1172,21 @@
             }, 100);
         };
 
-        // 즐겨찾기 엔진
         async function toggleFavorite(id, el) {
-            // 전역 배열에서 해당 레시피 찾기
             const recipeIndex = allRecipes.findIndex(r => r.id === id);
             if (recipeIndex === -1) return;
 
-            // 상태 반전 및 전역 변수 즉시 반영
             const newStatus = !allRecipes[recipeIndex].favorite;
             allRecipes[recipeIndex].favorite = newStatus;
 
-            // UI 즉시 피드백
             el.innerText = newStatus ? 'star' : 'star_border';
             el.classList.toggle('active', newStatus);
 
-            // 현재 보고 있는 페이지가 '즐겨찾기'라면 즉시 리스트에서 제거/추가
             if (document.getElementById('favoritePage').style.display === 'block') {
                 const favList = allRecipes.filter(r => r.favorite);
                 renderRecipeList(favList, 'favoriteList');
             }
 
-            // 서버 통신 (백그라운드)
             try {
                 const res = await fetch(`/api/recipes/${id}/favorite`, {
                     method: 'POST',
@@ -1292,42 +1195,32 @@
                 });
                 if (!res.ok) throw new Error();
             } catch (e) {
-                // 실패 시 롤백
                 allRecipes[recipeIndex].favorite = !newStatus;
                 alert("연결이 불안정하여 반영되지 않았습니다.");
-                sortRecipes(currentSortType); // 화면 복구
+                sortRecipes(currentSortType); 
             }
         }
 
-
-        // 탭 전환 로직 (최적화 및 FAB 제어 포함)
         function switchTab(tabName, el) {
-            // 탭 전환 시 열려있던 떠 있는 메뉴들 강제 종료 
             const sortMenu = document.getElementById('sortMenu');
             if (sortMenu) sortMenu.style.display = 'none';
 
             const fabMenu = document.getElementById('fabSubMenu');
             if (fabMenu) fabMenu.style.display = 'none';
 
-            // 하단 네비게이션 아이콘 활성화 상태 변경
             document.querySelectorAll('.nav-item').forEach(item => {
                 item.classList.remove('active');
             });
             if (el) el.classList.add('active');
 
-            // 상단 타이틀 및 페이지 섹션 설정
             const titleEl = document.getElementById('topTitle');
-
-            // sections 배열에 'myPage' 추가
             const sections = ['refrigeratorPage', 'recipePage', 'favoritePage', 'myPage'];
 
-            // 모든 섹션 숨김 처리
             sections.forEach(s => {
                 const target = document.getElementById(s);
                 if (target) target.style.display = 'none';
             });
 
-            // 페이지 최상단으로 스크롤 이동
             const mainContent = document.getElementById('mainContent');
             if (mainContent) {
                 mainContent.scrollTop = 0;
@@ -1335,13 +1228,12 @@
                 window.scrollTo(0, 0);
             }
 
-            // 선택된 탭별 분기 처리 및 FAB 제어
             const fab = document.getElementById('mainFab');
 
             if (tabName === 'refrigerator') {
                 titleEl.innerText = "내 냉장고";
                 document.getElementById('refrigeratorPage').style.display = 'block';
-                if (fab) fab.style.display = 'flex'; // 냉장고 탭에서만 FAB 노출
+                if (fab) fab.style.display = 'flex'; 
 
             } else if (tabName === 'recipes') {
                 titleEl.innerText = "모든 레시피";
@@ -1365,22 +1257,19 @@
             } else if (tabName === 'mypage') {
                 titleEl.innerText = "설정 및 마이페이지";
                 document.getElementById('myPage').style.display = 'block';
-                if (fab) fab.style.display = 'none'; // 마이페이지에서는 FAB 숨김
+                if (fab) fab.style.display = 'none'; 
             }
         }
-        // 시스템 및 팝업 제어
+
         window.onpopstate = function (event) {
-            // 상세 모달이 열려있는 상태에서 뒤로가기를 누르면 해시가 사라짐을 감지
             const detailModal = document.getElementById('recipeDetailModal');
             const addPage = document.getElementById('addPage');
             const deletePage = document.getElementById('deletePage');
 
-            // 모든 모달/페이지를 숨기고 메인 화면으로 복귀
             if (detailModal) detailModal.style.display = 'none';
             if (addPage) addPage.style.display = 'none';
             if (deletePage) deletePage.style.display = 'none';
 
-            // FAB 메뉴도 열려있다면 닫음
             const fabMenu = document.getElementById('fabSubMenu');
             if (fabMenu) fabMenu.style.display = 'none';
         };
@@ -1389,7 +1278,6 @@
             window.location.href = "/mypage";
         }
 
-        // FAB 및 페이지 전환
         function toggleFabMenu() {
             const m = document.getElementById('fabSubMenu');
             m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
@@ -1397,20 +1285,17 @@
 
         function openAddPage() {
             selectedItems.clear();
-
             const chipContainer = document.getElementById('selectedChips');
-            if (chipContainer) {
-                chipContainer.innerHTML = "";
-            }
+            if (chipContainer) chipContainer.innerHTML = "";
+            
             const saveBtn = document.getElementById('saveBtn');
             if (saveBtn) {
                 saveBtn.innerText = "0개 추가";
                 saveBtn.disabled = true;
             }
             const ingSearchInput = document.getElementById('ingSearch');
-            if (ingSearchInput) {
-                ingSearchInput.value = "";
-            }
+            if (ingSearchInput) ingSearchInput.value = "";
+            
             document.getElementById('addPage').style.display = 'flex';
             const fabMenu = document.getElementById('fabSubMenu');
             if (fabMenu) fabMenu.style.display = 'none';
@@ -1423,6 +1308,7 @@
             document.getElementById('addPage').style.display = 'none';
         }
 
+        // 🔥🔥🔥 [수정 핵심] 삭제 페이지 오픈 시 data-db-id 불러오기 🔥🔥🔥
         function openDeletePage() {
             itemsToDelete.clear();
             const delBtn = document.getElementById('delConfirmBtn');
@@ -1441,7 +1327,6 @@
             document.getElementById('deletePage').style.display = 'none';
         }
 
-        // 재료 검색 및 추가
         async function searchIng() {
             const q = document.getElementById('ingSearch').value.trim();
             const res = await fetch(`/items/search?q=${encodeURIComponent(q || 'popular')}`);
@@ -1478,35 +1363,41 @@
             location.reload();
         }
 
-        // 재료 삭제 관리
+        // 🔥🔥🔥 [수정 핵심] 삭제 리스트 렌더링 - data-db-id 속성 매핑! 🔥🔥🔥
         function renderDeleteList() {
             const container = document.getElementById('deleteListGrid');
-            const cards = document.querySelectorAll('#refrigeratorPage .item-card');
+            const cards = document.querySelectorAll('#itemList .item-card');
 
             container.innerHTML = Array.from(cards).map(card => `
-        <div class="item-card" onclick="toggleDeleteItem('${card.querySelector('.name').innerText.trim()}', this)">
-            ${card.innerHTML}
-        </div>
-    `).join('');
-
+                <div class="item-card" onclick="toggleDeleteItem('${card.getAttribute('data-db-id')}', this)">
+                    ${card.innerHTML}
+                </div>
+            `).join('');
+            
+            // 삭제 화면에서는 날짜 클릭 방지
             container.querySelectorAll('input').forEach(i => i.style.pointerEvents = 'none');
         }
 
-        function toggleDeleteItem(name, el) {
-            itemsToDelete.has(name) ? itemsToDelete.delete(name) : itemsToDelete.add(name);
+        // 🔥🔥🔥 [수정 핵심] 삭제 아이템 토글 🔥🔥🔥
+        function toggleDeleteItem(id, el) {
+            itemsToDelete.has(id) ? itemsToDelete.delete(id) : itemsToDelete.add(id);
             el.classList.toggle('selected');
             document.getElementById('delConfirmBtn').innerText = `${itemsToDelete.size}개 삭제`;
             document.getElementById('delConfirmBtn').disabled = itemsToDelete.size === 0;
         }
 
+        // 🔥🔥🔥 [수정 핵심] 전체 선택 (이름 대신 ID로 저장) 🔥🔥🔥
         function toggleAllDeleteItems() {
             const isChecked = document.getElementById('selectAllCb').checked;
             itemsToDelete.clear();
 
             document.querySelectorAll('#deleteListGrid .item-card').forEach(card => {
-                const name = card.querySelector('.name').innerText.trim();
+                // 부모 컨테이너(onclick이 걸려있는)의 onclick 텍스트에서 id를 쪼개서 가져오는 안전한 방법
+                const clickAttr = card.getAttribute('onclick');
+                const id = clickAttr.split("'")[1]; 
+
                 if (isChecked) {
-                    itemsToDelete.add(name);
+                    itemsToDelete.add(id);
                     card.classList.add('selected');
                 } else {
                     card.classList.remove('selected');
@@ -1517,15 +1408,15 @@
             document.getElementById('delConfirmBtn').disabled = itemsToDelete.size === 0;
         }
 
+        // 🔥🔥🔥 [수정 핵심] 서버로 진짜 DB ID를 전송해서 100% 깔끔하게 삭제! 🔥🔥🔥
         async function deleteSelectedItems() {
             if (!confirm(`${itemsToDelete.size}개를 삭제할까요?`)) return;
-            await Promise.all(Array.from(itemsToDelete).map(name =>
-                fetch(`/items/${encodeURIComponent(name)}`, { method: 'DELETE' })
+            await Promise.all(Array.from(itemsToDelete).map(id =>
+                fetch(`/items/${id}`, { method: 'DELETE' })
             ));
             location.reload();
         }
 
-        // 데이터 및 날짜 관리
         function triggerDatePicker(event, el) {
             if (event.target.tagName === 'INPUT') return;
             const d = el.querySelector('input[type="date"]');
@@ -1540,16 +1431,14 @@
             });
             location.reload();
         }
-        // 즐겨찾기 전용 변수 선언
+        
         let currentFavSortType = 'match';
 
-        // 즐겨찾기 정렬 메뉴 토글
         function toggleFavSortMenu() {
             const menu = document.getElementById('favSortMenu');
             menu.style.display = (menu.style.display === 'flex') ? 'none' : 'flex';
         }
 
-        // 즐겨찾기 정렬 방식 선택
         function selectFavSort(type, text) {
             currentFavSortType = type;
             document.getElementById('currentFavSortText').innerText = text;
@@ -1557,35 +1446,25 @@
             renderFavorites();
         }
 
-        // 즐겨찾기 전용 렌더링 함수
         function renderFavorites() {
-            // 데이터가 없으면 중단
             if (!allRecipes || allRecipes.length === 0) return;
 
-            // 즐겨찾기 된 것만 1차 필터링
             let favList = allRecipes.filter(r => r.favorite);
-
-            // 내 냉장고 재료 목록 추출
             const nameElements = document.querySelectorAll('#refrigeratorPage .name');
             const myIngs = Array.from(nameElements).map(el => el.innerText.trim());
 
-            // 현재 설정된 정렬 타입에 따라 강제로 정렬 수행
             favList.sort((a, b) => {
                 const rA = a.ingredients.filter(i => myIngs.includes(i)).length / a.ingredients.length;
                 const rB = b.ingredients.filter(i => myIngs.includes(i)).length / b.ingredients.length;
 
-                if (currentFavSortType === 'match') return rB - rA; // 보유율순
-                if (currentFavSortType === 'max') return b.ingredients.length - a.ingredients.length; // 재료 많은순
-                return a.ingredients.length - b.ingredients.length; // 재료 적은순
+                if (currentFavSortType === 'match') return rB - rA; 
+                if (currentFavSortType === 'max') return b.ingredients.length - a.ingredients.length; 
+                return a.ingredients.length - b.ingredients.length; 
             });
 
-            // 정렬된 리스트를 화면에 출력
             renderRecipeList(favList, 'favoriteList');
         }
-    </script>
 
-    <script>
-        // 내 재료 칩 렌더링 함수
         function renderMyIngChips() {
             const chipContainer = document.getElementById('myIngChips');
             if (!chipContainer) return;
@@ -1606,7 +1485,6 @@
     `).join('');
         }
 
-        // 칩 클릭 시 상태 토글
         function toggleIngFilter(name, el) {
             if (selectedSearchIngs.has(name)) {
                 selectedSearchIngs.delete(name);
@@ -1615,8 +1493,10 @@
                 selectedSearchIngs.add(name);
                 el.classList.add('active');
             }
-            filterRecipes(); // 즉시 레시피 리스트 갱신
+            filterRecipes(); 
         }
+
+        // 🔥🔥🔥 냉장고 정렬 로직도 DB ID에 맞게 수정 🔥🔥🔥
         function sortFridgeItems() {
             const container = document.getElementById('itemList');
             const sortType = document.getElementById('fridgeSortSelect').value;
@@ -1626,26 +1506,22 @@
 
             cards.sort((a, b) => {
                 if (sortType === 'expiry') {
-                    // 소비기한순 (숫자 오름차순)
                     return parseInt(a.getAttribute('data-dday')) - parseInt(b.getAttribute('data-dday'));
                 }
                 else if (sortType === 'latest') {
-                    // 최근 등록순 (인덱스 내림차순)
-                    return parseInt(b.getAttribute('data-id')) - parseInt(a.getAttribute('data-id'));
+                    return parseInt(b.getAttribute('data-db-id')) - parseInt(a.getAttribute('data-db-id'));
                 }
                 else if (sortType === 'name') {
-                    // 가나다순
                     const nameA = a.querySelector('.name').innerText.trim();
                     const nameB = b.querySelector('.name').innerText.trim();
                     return nameA.localeCompare(nameB, 'ko');
                 }
             });
 
-            // 정렬된 카드를 DOM에 다시 붙임 (appendChild는 기존 요소를 이동시킴)
             cards.forEach(card => container.appendChild(card));
         }
+
         function filterFridge(type, btn) {
-            // 모든 탭 버튼의 active 클래스 제거 및 클릭된 버튼에 추가
             document.querySelectorAll('.f-tab').forEach(tab => tab.classList.remove('active'));
             btn.classList.add('active');
 
@@ -1655,73 +1531,6 @@
                 const ddayRaw = card.getAttribute('data-dday');
                 const dday = parseInt(ddayRaw);
 
-                let isVisible = false;
-
-                switch (type) {
-                    case 'all':
-                        isVisible = true;
-                        break;
-                    case 'expired':
-                        // 지남: D-Day가 0보다 작은 경우 (D+1, D+2...)
-                        isVisible = (dday < 0);
-                        break;
-                    case 'urgent':
-                        // 임박: 0일(D-Day)부터 3일 남은 경우
-                        isVisible = (dday >= 0 && dday <= 3);
-                        break;
-                    case 'safe':
-                        // 여유: 4일 이상 남은 경우 (9999 제외)
-                        isVisible = (dday > 3 && dday < 9999);
-                        break;
-                    case 'none':
-                        // 미입력: dday가 9999인 경우
-                        isVisible = (dday === 9999);
-                        break;
-                }
-
-                // 조건에 맞으면 보이고 아니면 숨김
-                card.style.display = isVisible ? 'flex' : 'none';
-            });
-        }
-        // 냉장고 정렬 메뉴 토글
-        function toggleFridgeSortMenu() {
-            const menu = document.getElementById('fridgeSortMenu');
-            menu.style.display = (menu.style.display === 'flex') ? 'none' : 'flex';
-        }
-
-        // 냉장고 정렬 방식 선택 및 실행
-        function selectFridgeSort(type, text) {
-            document.getElementById('currentFridgeSortText').innerText = text;
-            closeAllSortMenus();
-
-            const container = document.getElementById('itemList');
-            const cards = Array.from(container.getElementsByClassName('item-card'));
-
-            cards.sort((a, b) => {
-                if (type === 'expiry') {
-                    return parseInt(a.getAttribute('data-dday')) - parseInt(b.getAttribute('data-dday'));
-                } else if (type === 'latest') {
-                    return parseInt(b.getAttribute('data-id')) - parseInt(a.getAttribute('data-id'));
-                } else if (type === 'name') {
-                    const nameA = a.querySelector('.name').innerText.trim();
-                    const nameB = b.querySelector('.name').innerText.trim();
-                    return nameA.localeCompare(nameB, 'ko');
-                }
-            });
-
-            cards.forEach(card => container.appendChild(card));
-        }
-
-        // 5단 탭 필터링 로직
-        function filterFridge(type, el) {
-            // 탭 스타일 변경
-            document.querySelectorAll('#fridgeTabs .sort-chip').forEach(c => c.classList.remove('active'));
-            el.classList.add('active');
-
-            const cards = document.querySelectorAll('#itemList .item-card');
-
-            cards.forEach(card => {
-                const dday = parseInt(card.getAttribute('data-dday'));
                 let isVisible = false;
 
                 switch (type) {
@@ -1735,7 +1544,6 @@
             });
         }
 
-        // 모든 정렬 메뉴 닫기
         function closeAllSortMenus() {
             document.getElementById('fridgeSortMenu').style.display = 'none';
             document.getElementById('sortMenu').style.display = 'none';
@@ -1743,7 +1551,6 @@
             document.getElementById('sortOverlay').style.display = 'none';
         }
 
-        // 정렬 메뉴 열 때 오버레이도 같이 열기
         function toggleFridgeSortMenu() {
             const menu = document.getElementById('fridgeSortMenu');
             const isOpen = menu.style.display === 'flex';
@@ -1793,7 +1600,6 @@
                 }
             });
 
-            // 화면에 숫자 반영
             document.getElementById('count-all').innerText = counts.all;
             document.getElementById('count-expired').innerText = counts.expired;
             document.getElementById('count-urgent').innerText = counts.urgent;
@@ -1801,13 +1607,8 @@
             document.getElementById('count-none').innerText = counts.none;
         }
 
-        // [초기화 구역에 삽입]
-        // index.html 스크립트 구역의 window load 이벤트 수정
-        // index.html의 서비스 워커 등록 및 권한 요청 구역 수정
         window.addEventListener('load', async () => {
             if ('serviceWorker' in navigator && 'PushManager' in window) {
-
-                // ✅ API에서 공개키 가져오기
                 const res = await fetch('/api/vapid-public-key');
                 const data = await res.json();
                 const VAPID_PUBLIC_KEY = data.public_key;
@@ -1847,10 +1648,8 @@
             }
         });
 
-        // 페이지 로드 시 최초 1회 실행
         document.addEventListener('DOMContentLoaded', updateTabCounts);
 
-        // 스크롤 시 모든 정렬 메뉴 닫기
         ['refrigeratorPage', 'recipePage', 'favoritePage'].forEach(id => {
             document.getElementById(id).addEventListener('scroll', function () {
                 document.getElementById('fridgeSortMenu').style.display = 'none';
