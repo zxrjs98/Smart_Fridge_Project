@@ -1308,7 +1308,6 @@
             document.getElementById('addPage').style.display = 'none';
         }
 
-        // 🔥🔥🔥 [수정 핵심] 삭제 페이지 오픈 시 data-db-id 불러오기 🔥🔥🔥
         function openDeletePage() {
             itemsToDelete.clear();
             const delBtn = document.getElementById('delConfirmBtn');
@@ -1363,7 +1362,6 @@
             location.reload();
         }
 
-        // 🔥🔥🔥 [수정 핵심] 삭제 리스트 렌더링 - data-db-id 속성 매핑! 🔥🔥🔥
         function renderDeleteList() {
             const container = document.getElementById('deleteListGrid');
             const cards = document.querySelectorAll('#itemList .item-card');
@@ -1378,7 +1376,6 @@
             container.querySelectorAll('input').forEach(i => i.style.pointerEvents = 'none');
         }
 
-        // 🔥🔥🔥 [수정 핵심] 삭제 아이템 토글 🔥🔥🔥
         function toggleDeleteItem(id, el) {
             itemsToDelete.has(id) ? itemsToDelete.delete(id) : itemsToDelete.add(id);
             el.classList.toggle('selected');
@@ -1386,7 +1383,6 @@
             document.getElementById('delConfirmBtn').disabled = itemsToDelete.size === 0;
         }
 
-        // 🔥🔥🔥 [수정 핵심] 전체 선택 (이름 대신 ID로 저장) 🔥🔥🔥
         function toggleAllDeleteItems() {
             const isChecked = document.getElementById('selectAllCb').checked;
             itemsToDelete.clear();
@@ -1408,7 +1404,6 @@
             document.getElementById('delConfirmBtn').disabled = itemsToDelete.size === 0;
         }
 
-        // 🔥🔥🔥 [수정 핵심] 서버로 진짜 DB ID를 전송해서 100% 깔끔하게 삭제! 🔥🔥🔥
         async function deleteSelectedItems() {
             if (!confirm(`${itemsToDelete.size}개를 삭제할까요?`)) return;
             await Promise.all(Array.from(itemsToDelete).map(id =>
@@ -1496,7 +1491,6 @@
             filterRecipes(); 
         }
 
-        // 🔥🔥🔥 냉장고 정렬 로직도 DB ID에 맞게 수정 🔥🔥🔥
         function sortFridgeItems() {
             const container = document.getElementById('itemList');
             const sortType = document.getElementById('fridgeSortSelect').value;
