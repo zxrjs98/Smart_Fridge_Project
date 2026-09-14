@@ -14,7 +14,8 @@ class User(Base):
     items = relationship("Item", back_populates="owner", cascade="all, delete-orphan")
     favorites = relationship("Favorite", back_populates="user", cascade="all, delete-orphan")
     shopping_items = relationship("ShoppingList", back_populates="user", cascade="all, delete-orphan")
-
+    meal_logs = relationship("MealLog", back_populates="user", cascade="all, delete-orphan")
+    
 # 내 냉장고 재료
 class Item(Base):
     __tablename__ = "user_items"
@@ -76,3 +77,15 @@ class PushSubscription(Base):
     subscription_info = Column(Text, nullable=False)  # JSON 문자열로 저장
     
     user = relationship("User")
+
+# 식단(레시피 사용) 기록
+class MealLog(Base):
+    __tablename__ = "meal_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    recipe_id = Column(Integer, ForeignKey("recipes.recipe_id"), nullable=True)
+    recipe_name = Column(String(255), nullable=False)
+    consumed_items = Column(Text, nullable=True)  # 다 써서 삭제한 재료 이름들, JSON 문자열
+    consumed_at = Column(DateTime, default=func.now())
+
+    user = relationship("User", back_populates="meal_logs")

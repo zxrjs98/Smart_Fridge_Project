@@ -13,6 +13,8 @@ import difflib
 from typing import Optional, List
 from datetime import datetime, date, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
+from pydantic import BaseModel
+from typing import List
 
 # ==========================================
 # 🚀 FastAPI 관련 도구
@@ -27,6 +29,7 @@ from fastapi import Body, HTTPException
 # 💾 데이터베이스 및 기능 도구
 # ==========================================
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from database.connection import engine, get_db
 import database.models as models
@@ -362,9 +365,16 @@ def get_recipes(request: Request, db: Session = Depends(get_db)):
     
     all_raw_recipes = db.query(models.Recipe).all()
     favorite_ids = set()
+    usage_counts = {}
     if current_user_id:
         favs = db.query(models.Favorite.recipe_id).filter(models.Favorite.user_id == current_user_id).all()
         favorite_ids = {f[0] for f in favs}
+
+        # 레시피별 사용 횟수 집계
+        counts = db.query(models.MealLog.recipe_id, func.count(models.MealLog.id)).filter(
+            models.MealLog.user_id == current_user_id
+        ).group_by(models.MealLog.recipe_id).all()
+        usage_counts = {rid: cnt for rid, cnt in counts}
 
     results = []
     for r in all_raw_recipes:
@@ -373,7 +383,8 @@ def get_recipes(request: Request, db: Session = Depends(get_db)):
         results.append({
             "id": rid, "name": r.name, "ingredients": [i[0] for i in ings],
             "favorite": rid in favorite_ids, "image_url": r.image_url or "",
-            "instructions": r.instructions or "", "original_ingredients": r.original_ingredients or ""
+            "instructions": r.instructions or "", "original_ingredients": r.original_ingredients or "",
+            "used_count": usage_counts.get(rid, 0)
         })
     return results
 
@@ -389,8 +400,105 @@ async def toggle_favorite(recipe_id: int, request: Request, db: Session = Depend
     db.commit()
     return {"message": "success"}
 
-# 네이버 OCR 통신 코드
+@app.get("/api/recipes/{recipe_id}/match-items")
+def match_recipe_items(recipe_id: int, request: Request, db: Session = Depends(get_db)):
+    user_id_str = request.cookies.get("user_id")
+    if not user_id_str:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+    user_id = int(user_id_str)
 
+    recipe_ingredients = db.query(models.RecipeIngredient.ingredient_name).filter(
+        models.RecipeIngredient.recipe_id == recipe_id
+    ).all()
+    ingredient_names = [i[0] for i in recipe_ingredients]
+
+    fridge_items = db.query(models.Item).filter(models.Item.user_id == user_id).all()
+
+    matched = []
+    used_item_ids = set()
+    for ing_name in ingredient_names:
+        # 1순위: 이름이 정확히 일치하는 재료
+        exact = [it for it in fridge_items if it.name == ing_name and it.id not in used_item_ids]
+        item = exact[0] if exact else None
+
+        # 2순위: 유사한 이름으로 퍼지 매칭 (예: "대파" ~ "쪽파")
+        if not item:
+            candidates = {it.name: it for it in fridge_items if it.id not in used_item_ids}
+            close = difflib.get_close_matches(ing_name, candidates.keys(), n=1, cutoff=0.6)
+            item = candidates[close[0]] if close else None
+
+        if item:
+            used_item_ids.add(item.id)
+            matched.append({"ingredient_name": ing_name, "item_id": item.id, "item_name": item.name})
+        else:
+            matched.append({"ingredient_name": ing_name, "item_id": None, "item_name": None})
+
+    return {"matched": matched}
+
+class ConsumeRequest(BaseModel):
+    recipe_id: int
+    recipe_name: str
+    consumed_item_ids: List[int] = []   # 사용자가 "다 썼어요" 체크한 Item.id 목록
+
+@app.post("/api/recipes/consume")
+async def consume_recipe(request: Request, body: ConsumeRequest, db: Session = Depends(get_db)):
+    user_id_str = request.cookies.get("user_id")
+    if not user_id_str:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+    user_id = int(user_id_str)
+
+    deleted_names = []
+    if body.consumed_item_ids:
+        items_to_delete = db.query(models.Item).filter(
+            models.Item.id.in_(body.consumed_item_ids),
+            models.Item.user_id == user_id
+        ).all()
+        for item in items_to_delete:
+            deleted_names.append(item.name)
+            db.delete(item)
+
+    new_log = models.MealLog(
+        user_id=user_id,
+        recipe_id=body.recipe_id,
+        recipe_name=body.recipe_name,
+        consumed_items=json.dumps(deleted_names, ensure_ascii=False)
+    )
+    db.add(new_log)
+    db.commit()
+
+    return {"status": "success", "deleted_items": deleted_names}
+
+@app.get("/api/meal-logs")
+def get_meal_logs(request: Request, db: Session = Depends(get_db)):
+    user_id_str = request.cookies.get("user_id")
+    if not user_id_str:
+        raise HTTPException(status_code=401)
+    user_id = int(user_id_str)
+
+    logs = db.query(models.MealLog).filter(
+        models.MealLog.user_id == user_id
+    ).order_by(models.MealLog.consumed_at.desc()).all()
+
+    return [
+        {
+            "recipe_name": log.recipe_name,
+            "consumed_at": log.consumed_at.strftime("%Y-%m-%d %H:%M"),
+            "consumed_items": json.loads(log.consumed_items) if log.consumed_items else []
+        }
+        for log in logs
+    ]
+
+@app.delete("/api/meal-logs")
+def delete_meal_logs(request: Request, db: Session = Depends(get_db)):
+    user_id_str = request.cookies.get("user_id")
+    if not user_id_str:
+        raise HTTPException(status_code=401)
+    user_id = int(user_id_str)
+    db.query(models.MealLog).filter(models.MealLog.user_id == user_id).delete()
+    db.commit()
+    return {"status": "success"}
+
+# 네이버 OCR 통신 코드
 import json
 from openai import OpenAI
 
@@ -612,6 +720,8 @@ def get_notification_time(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401)
     user = db.query(models.User).filter(models.User.id == int(user_id)).first()
     return {"time": user.notification_time or "09:00"}
+
+
 
 scheduler = BackgroundScheduler()
 scheduler.add_job(check_expiry_and_queue_notifications, 'interval', minutes=1)
