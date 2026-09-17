@@ -41,6 +41,9 @@ from pywebpush import webpush, WebPushException
 import requests
 from openai import OpenAI
 
+# 🔐 쿠키 서명(위조 방지)
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+
 # 환경 변수 로드
 load_dotenv()
 
@@ -53,6 +56,39 @@ templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# -----------------------------
+# 🔐 세션 쿠키 서명/검증 헬퍼
+# -----------------------------
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise RuntimeError(".env 파일에 SECRET_KEY를 추가해주세요! (예: python -c \"import secrets; print(secrets.token_hex(32))\")")
+
+serializer = URLSafeTimedSerializer(SECRET_KEY)
+COOKIE_MAX_AGE = 60 * 60 * 24 * 30  # 30일
+
+def create_session_cookie(user_id: int) -> str:
+    return serializer.dumps({"user_id": user_id})
+
+def get_current_user_id(request: Request) -> Optional[int]:
+    """서명된 쿠키를 검증해서 user_id를 반환. 위조/만료/없음이면 None."""
+    token = request.cookies.get("user_id")
+    if not token:
+        return None
+    try:
+        data = serializer.loads(token, max_age=COOKIE_MAX_AGE)
+        return data.get("user_id")
+    except (BadSignature, SignatureExpired):
+        return None
+
+def set_login_cookie(response, user_id: int):
+    response.set_cookie(
+        key="user_id",
+        value=create_session_cookie(user_id),
+        httponly=True,
+        max_age=COOKIE_MAX_AGE,
+        samesite="lax"
+    )
 
 def get_password_hash(password: str) -> str:
     pwd_bytes = password.encode('utf-8')
@@ -120,7 +156,7 @@ def login_user(request: Request, username: str = Form(...), password: str = Form
         return templates.TemplateResponse(request=request, name="login.html", context={"error": "아이디 또는 비밀번호가 일치하지 않습니다."})
     
     response = RedirectResponse(url="/main", status_code=303)
-    response.set_cookie(key="user_id", value=str(user.id), httponly=True)
+    set_login_cookie(response, user.id)
     return response
 
 @app.get("/register")
@@ -169,8 +205,10 @@ def logout():
 
 @app.post("/withdraw")
 def withdraw_account(request: Request, db: Session = Depends(get_db)):
-    user_id = request.cookies.get("user_id")
-    user = db.query(models.User).filter(models.User.id == int(user_id)).first()
+    user_id = get_current_user_id(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+    user = db.query(models.User).filter(models.User.id == user_id).first()
     db.delete(user)
     db.commit()
     response = HTMLResponse("<script>alert('회원 탈퇴가 완료되었습니다. 그동안 이용해주셔서 감사합니다.'); window.location.href='/';</script>")
@@ -209,16 +247,18 @@ async def find_pw(request: Request, username: str = Form(...), email: str = Form
 
 @app.get("/profile")
 def profile_page(request: Request, db: Session = Depends(get_db)):
-    user_id = request.cookies.get("user_id")
+    user_id = get_current_user_id(request)
     if not user_id:
-        return RedirectResponse(url="/login", status_code=303)
-    user = db.query(models.User).filter(models.User.id == int(user_id)).first()
+        return RedirectResponse(url="/", status_code=303)
+    user = db.query(models.User).filter(models.User.id == user_id).first()
     return templates.TemplateResponse(request=request, name="profile.html", context={"user": user})
 
 @app.post("/update-profile")
 def update_profile(current_pw: str = Form(None), new_pw: str = Form(None), new_pw_confirm: str = Form(None), db: Session = Depends(get_db), request: Request = None):
-    user_id = request.cookies.get("user_id")
-    user = db.query(models.User).filter(models.User.id == int(user_id)).first()
+    user_id = get_current_user_id(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+    user = db.query(models.User).filter(models.User.id == user_id).first()
     if current_pw and new_pw and new_pw_confirm:
         if not verify_password(current_pw, user.hashed_password):
             return JSONResponse({"status": "error", "message": "현재 비밀번호가 틀렸습니다."})
@@ -237,11 +277,10 @@ def update_profile(current_pw: str = Form(None), new_pw: str = Form(None), new_p
 # ---------------------------------------------------------
 @app.get("/main")
 def main_page(request: Request, db: Session = Depends(get_db)):
-    user_id_str = request.cookies.get("user_id")
-    if not user_id_str:
+    user_id = get_current_user_id(request)
+    if not user_id:
         return RedirectResponse(url="/", status_code=303)
-    
-    user_id = int(user_id_str)
+
     try:
         items = db.query(models.Item).filter(models.Item.user_id == user_id).order_by(models.Item.expiry_date.is_(None), models.Item.expiry_date.asc()).all()
         today = date.today()
@@ -270,7 +309,9 @@ def search_ingredients(q: str = "", db: Session = Depends(get_db)):
 
 @app.post("/items")
 async def create_item(request: Request, db: Session = Depends(get_db)):
-    user_id = int(request.cookies.get("user_id"))
+    user_id = get_current_user_id(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
     data = await request.json()
     expiry_str = data.get('expiry_date')
     expiry = datetime.strptime(expiry_str, '%Y-%m-%d').date() if expiry_str and expiry_str.strip() else None
@@ -286,10 +327,9 @@ async def update_item_date(
     body: dict = Body(...),
     db: Session = Depends(get_db)
 ):
-    user_id_str = request.cookies.get("user_id")
-    if not user_id_str:
+    user_id = get_current_user_id(request)
+    if not user_id:
         raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
-    user_id = int(user_id_str)
 
     new_date_str = body.get("expiry_date")
     new_date = None
@@ -307,7 +347,9 @@ async def update_item_date(
 
 @app.delete("/items/{item_id}")
 def delete_item(item_id: int, request: Request, db: Session = Depends(get_db)):
-    user_id = int(request.cookies.get("user_id"))
+    user_id = get_current_user_id(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
     item = db.query(models.Item).filter(models.Item.id == item_id, models.Item.user_id == user_id).first()
     if item:
         db.delete(item)
@@ -324,31 +366,31 @@ async def get_menu_page(request: Request):
 
 @app.get("/shopping")
 def get_shopping_list(request: Request, db: Session = Depends(get_db)):
-    user_id = request.cookies.get("user_id") 
+    user_id = get_current_user_id(request)
     if not user_id:
-        return RedirectResponse(url="/login", status_code=303)
-    shopping_list = db.query(models.ShoppingList).filter(models.ShoppingList.user_id == int(user_id)).all()
+        return RedirectResponse(url="/", status_code=303)
+    shopping_list = db.query(models.ShoppingList).filter(models.ShoppingList.user_id == user_id).all()
     return templates.TemplateResponse(request=request, name="shopping.html", context={"items": shopping_list})
 
 @app.post("/shopping/add")
 def add_shopping_item(request: Request, item_name: str = Form(...), db: Session = Depends(get_db)):
-    user_id = request.cookies.get("user_id")
+    user_id = get_current_user_id(request)
     if not user_id:
         return {"error": "로그인이 필요합니다."}
-    existing_item = db.query(models.ShoppingList).filter(models.ShoppingList.user_id == int(user_id), models.ShoppingList.item_name == item_name).first()
+    existing_item = db.query(models.ShoppingList).filter(models.ShoppingList.user_id == user_id, models.ShoppingList.item_name == item_name).first()
     if existing_item:
         return RedirectResponse(url="/shopping", status_code=303)
-    new_item = models.ShoppingList(item_name=item_name, user_id=int(user_id), is_bought=False)
+    new_item = models.ShoppingList(item_name=item_name, user_id=user_id, is_bought=False)
     db.add(new_item)
     db.commit()
     return RedirectResponse(url="/shopping", status_code=303)
 
 @app.post("/shopping/delete/{item_id}")
 def delete_shopping_item(request: Request, item_id: int = Path(...), db: Session = Depends(get_db)):
-    user_id = request.cookies.get("user_id")
+    user_id = get_current_user_id(request)
     if not user_id:
-        return RedirectResponse(url="/login", status_code=303)
-    item_to_delete = db.query(models.ShoppingList).filter(models.ShoppingList.id == item_id, models.ShoppingList.user_id == int(user_id)).first()
+        return RedirectResponse(url="/", status_code=303)
+    item_to_delete = db.query(models.ShoppingList).filter(models.ShoppingList.id == item_id, models.ShoppingList.user_id == user_id).first()
     if not item_to_delete:
         return {"error": "삭제 권한이 없거나 존재하지 않는 항목입니다."}
     db.delete(item_to_delete)
@@ -360,8 +402,7 @@ def delete_shopping_item(request: Request, item_id: int = Path(...), db: Session
 # ---------------------------------------------------------
 @app.get("/api/recipes")
 def get_recipes(request: Request, db: Session = Depends(get_db)):
-    user_id_str = request.cookies.get("user_id")
-    current_user_id = int(user_id_str) if user_id_str else None
+    current_user_id = get_current_user_id(request)
     
     all_raw_recipes = db.query(models.Recipe).all()
     favorite_ids = set()
@@ -390,7 +431,9 @@ def get_recipes(request: Request, db: Session = Depends(get_db)):
 
 @app.post("/api/recipes/{recipe_id}/favorite")
 async def toggle_favorite(recipe_id: int, request: Request, db: Session = Depends(get_db)):
-    user_id = int(request.cookies.get("user_id"))
+    user_id = get_current_user_id(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
     data = await request.json()
     fav_record = db.query(models.Favorite).filter(models.Favorite.user_id == user_id, models.Favorite.recipe_id == recipe_id).first()
     if data.get("favorite") and not fav_record:
@@ -402,10 +445,9 @@ async def toggle_favorite(recipe_id: int, request: Request, db: Session = Depend
 
 @app.get("/api/recipes/{recipe_id}/match-items")
 def match_recipe_items(recipe_id: int, request: Request, db: Session = Depends(get_db)):
-    user_id_str = request.cookies.get("user_id")
-    if not user_id_str:
+    user_id = get_current_user_id(request)
+    if not user_id:
         raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
-    user_id = int(user_id_str)
 
     recipe_ingredients = db.query(models.RecipeIngredient.ingredient_name).filter(
         models.RecipeIngredient.recipe_id == recipe_id
@@ -442,10 +484,9 @@ class ConsumeRequest(BaseModel):
 
 @app.post("/api/recipes/consume")
 async def consume_recipe(request: Request, body: ConsumeRequest, db: Session = Depends(get_db)):
-    user_id_str = request.cookies.get("user_id")
-    if not user_id_str:
+    user_id = get_current_user_id(request)
+    if not user_id:
         raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
-    user_id = int(user_id_str)
 
     deleted_names = []
     if body.consumed_item_ids:
@@ -470,10 +511,9 @@ async def consume_recipe(request: Request, body: ConsumeRequest, db: Session = D
 
 @app.get("/api/meal-logs")
 def get_meal_logs(request: Request, db: Session = Depends(get_db)):
-    user_id_str = request.cookies.get("user_id")
-    if not user_id_str:
+    user_id = get_current_user_id(request)
+    if not user_id:
         raise HTTPException(status_code=401)
-    user_id = int(user_id_str)
 
     logs = db.query(models.MealLog).filter(
         models.MealLog.user_id == user_id
@@ -490,10 +530,9 @@ def get_meal_logs(request: Request, db: Session = Depends(get_db)):
 
 @app.delete("/api/meal-logs")
 def delete_meal_logs(request: Request, db: Session = Depends(get_db)):
-    user_id_str = request.cookies.get("user_id")
-    if not user_id_str:
+    user_id = get_current_user_id(request)
+    if not user_id:
         raise HTTPException(status_code=401)
-    user_id = int(user_id_str)
     db.query(models.MealLog).filter(models.MealLog.user_id == user_id).delete()
     db.commit()
     return {"status": "success"}
@@ -508,10 +547,9 @@ async def scan_receipt(
     receipt: UploadFile = File(...), 
     db: Session = Depends(get_db)
 ):
-    user_id_str = request.cookies.get("user_id")
-    if not user_id_str:
+    user_id = get_current_user_id(request)
+    if not user_id:
         return {"status": "error", "message": "로그인이 필요합니다."}
-    user_id = int(user_id_str)
 
     invoke_url = os.getenv("OCR_INVOKE_URL")
     secret_key = os.getenv("OCR_SECRET_KEY")
@@ -627,11 +665,10 @@ def get_service_worker():
 
 @app.get("/api/notifications/check")
 def check_notifications(request: Request, db: Session = Depends(get_db)):
-    user_id_str = request.cookies.get("user_id")
-    if not user_id_str:
+    user_id = get_current_user_id(request)
+    if not user_id:
         raise HTTPException(status_code=401)
     
-    user_id = int(user_id_str)
     today = date.today()
     items = db.query(models.Item).filter(models.Item.user_id == user_id).all()
     
@@ -654,16 +691,16 @@ def get_vapid_public_key():
 
 @app.post("/api/notifications/subscribe")
 async def subscribe_notifications(request: Request, db: Session = Depends(get_db)):
-    user_id = request.cookies.get("user_id")
+    user_id = get_current_user_id(request)
     if not user_id:
         raise HTTPException(status_code=401)
     
     subscription_info = await request.json()
-    existing = db.query(models.PushSubscription).filter(models.PushSubscription.user_id == int(user_id)).first()
+    existing = db.query(models.PushSubscription).filter(models.PushSubscription.user_id == user_id).first()
     if existing:
         existing.subscription_info = json.dumps(subscription_info)
     else:
-        new_sub = models.PushSubscription(user_id=int(user_id), subscription_info=json.dumps(subscription_info))
+        new_sub = models.PushSubscription(user_id=user_id, subscription_info=json.dumps(subscription_info))
         db.add(new_sub)
     db.commit()
     return {"status": "success"}
@@ -704,21 +741,21 @@ def check_expiry_and_queue_notifications():
 
 @app.post("/api/notification-time")
 async def update_notification_time(request: Request, db: Session = Depends(get_db)):
-    user_id = request.cookies.get("user_id")
+    user_id = get_current_user_id(request)
     if not user_id:
         raise HTTPException(status_code=401)
     data = await request.json()
-    user = db.query(models.User).filter(models.User.id == int(user_id)).first()
+    user = db.query(models.User).filter(models.User.id == user_id).first()
     user.notification_time = data.get("time")
     db.commit()
     return {"status": "success"}
 
 @app.get("/api/notification-time")
 def get_notification_time(request: Request, db: Session = Depends(get_db)):
-    user_id = request.cookies.get("user_id")
+    user_id = get_current_user_id(request)
     if not user_id:
         raise HTTPException(status_code=401)
-    user = db.query(models.User).filter(models.User.id == int(user_id)).first()
+    user = db.query(models.User).filter(models.User.id == user_id).first()
     return {"time": user.notification_time or "09:00"}
 
 
