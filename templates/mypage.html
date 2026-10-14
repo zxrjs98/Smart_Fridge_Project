@@ -235,7 +235,8 @@
             font-weight: 500;
         }
 
-        #mealLogModal {
+        #mealLogModal,
+        #stapleModal {
             display: none;
             position: fixed;
             top: 0;
@@ -290,6 +291,63 @@
             padding: 4px 10px;
             border-radius: 8px;
         }
+
+        .staple-desc {
+            font-size: 13px;
+            color: #888;
+            margin: 0 0 14px 0;
+        }
+
+        .staple-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .staple-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #eef6ff;
+            color: #4A90E2;
+            font-size: 14px;
+            font-weight: 700;
+            padding: 8px 12px;
+            border-radius: 20px;
+        }
+
+        .staple-chip button {
+            background: none;
+            border: none;
+            color: #4A90E2;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .staple-search {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 14px;
+            margin-bottom: 12px;
+            border: 2px solid #edf2f7;
+            border-radius: 12px;
+            background: #f8fafc;
+            font-size: 15px;
+            outline: none;
+        }
+
+        .staple-add {
+            background: #fff;
+            border: 1px dashed #4A90E2;
+            color: #4A90E2;
+            font-size: 14px;
+            font-weight: 700;
+            padding: 8px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+        }
     </style>
 </head>
 
@@ -331,6 +389,14 @@
                         <a href="#" onclick="openMealLogModal(); return false;" class="settings-item">
                             <div class="settings-item-left">
                                 <span class="material-icons">edit_calendar</span>&nbsp;식단 기록
+                            </div>
+                            <span class="settings-arrow">›</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" onclick="openStapleModal(); return false;" class="settings-item">
+                            <div class="settings-item-left">
+                                <span class="material-icons">restaurant</span>&nbsp;기본 재료 설정
                             </div>
                             <span class="settings-arrow">›</span>
                         </a>
@@ -388,6 +454,20 @@
             </button>
         </div>
         <div id="mealLogBody" class="meal-log-body"></div>
+    </div>
+
+    <div id="stapleModal">
+        <div class="header">
+            <button onclick="closeStapleModal()" class="back-btn">←</button>
+            <h1>기본 재료 설정</h1>
+        </div>
+        <div class="meal-log-body">
+            <p class="staple-desc">항상 집에 있는 재료예요. 냉장고 목록, 보유율·추천 계산, 알림에서 제외돼요.</p>
+            <div id="stapleChips" class="staple-chips"></div>
+            <input type="text" id="stapleSearch" class="staple-search" placeholder="재료를 검색해서 추가"
+                oninput="searchStaple()">
+            <div id="stapleResults" class="staple-chips"></div>
+        </div>
     </div>
 
     <script>
@@ -452,6 +532,71 @@
             } catch (e) {
                 alert('서버 연결에 실패했습니다.');
             }
+        }
+
+        let currentStaples = [];
+
+        async function openStapleModal() {
+            document.getElementById('stapleSearch').value = '';
+            document.getElementById('stapleResults').innerHTML = '';
+            document.getElementById('stapleModal').style.display = 'flex';
+            await loadStaples();
+        }
+
+        function closeStapleModal() {
+            document.getElementById('stapleModal').style.display = 'none';
+        }
+
+        async function loadStaples() {
+            try {
+                const res = await fetch('/api/staples');
+                const data = await res.json();
+                currentStaples = data.staples;
+            } catch (e) {
+                currentStaples = [];
+            }
+            renderStapleChips();
+        }
+
+        function renderStapleChips() {
+            const box = document.getElementById('stapleChips');
+            if (!currentStaples.length) {
+                box.innerHTML = '<span style="color:#bbb; font-size:13px;">설정된 기본 재료가 없어요.</span>';
+                return;
+            }
+            box.innerHTML = currentStaples.map(name => `
+        <span class="staple-chip">${name}
+            <button data-name="${name}" onclick="removeStaple(this.dataset.name)">✕</button>
+        </span>
+    `).join('');
+        }
+
+        async function searchStaple() {
+            const q = document.getElementById('stapleSearch').value.trim();
+            const box = document.getElementById('stapleResults');
+            if (!q) { box.innerHTML = ''; return; }
+
+            const res = await fetch(`/items/search?q=${encodeURIComponent(q)}`);
+            const data = await res.json();
+            const candidates = data.filter(r => !currentStaples.includes(r.name)).slice(0, 30);
+
+            box.innerHTML = candidates.length
+                ? candidates.map(r => `<button class="staple-add" data-name="${r.name}" onclick="addStaple(this.dataset.name)">+ ${r.name}</button>`).join('')
+                : '<span style="color:#bbb; font-size:13px;">검색 결과가 없어요.</span>';
+        }
+
+        async function addStaple(name) {
+            const res = await fetch('/api/staples', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            });
+            if (res.ok) { await loadStaples(); searchStaple(); }
+        }
+
+        async function removeStaple(name) {
+            const res = await fetch('/api/staples?name=' + encodeURIComponent(name), { method: 'DELETE' });
+            if (res.ok) { await loadStaples(); searchStaple(); }
         }
     </script>
 

@@ -247,6 +247,12 @@
             color: #adb5bd;
         }
 
+        .ing-staple {
+            background: transparent;
+            color: #868e96;
+            border: 1px dashed #ced4da;
+        }
+
         /* 하단 네비게이션 */
         .bottom-nav {
             position: fixed;
@@ -290,7 +296,8 @@
         /* 모달 및 기타 */
         #addPage,
         #deletePage,
-        #consumeModal {
+        #consumeModal,
+        #recommendModal {
             display: none;
             position: fixed;
             top: 0;
@@ -761,6 +768,49 @@
             opacity: 1;
             font-weight: 800;
         }
+
+        .recommend-btn {
+            grid-column: span 2;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #4A90E2, #357ABD);
+            color: white;
+            font-weight: 800;
+            font-size: 0.95rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .recipe-card.ranked {
+            position: relative;
+        }
+
+        .rank-badge {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: var(--urgent-color);
+            color: white;
+            font-size: 12px;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+        }
+
+        .ing-urgent {
+            background: #fff4e5;
+            color: var(--warning-color);
+            font-weight: 800;
+        }
     </style>
 </head>
 
@@ -803,6 +853,11 @@
         <div id="itemList"
             style="padding: 155px 16px 160px 16px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
             {% if items %}
+            <button class="recommend-btn" onclick="openRecommendModal()">
+                <span class="material-icons" style="font-size: 20px;">auto_awesome</span>
+                소비기한 기반 레시피 추천
+            </button>
+
             {% for item in items %}
             <div class="item-card" onclick="triggerDatePicker(event, this)"
                 data-dday="{{ item.d_day if item.d_day is not none else '9999' }}" data-db-id="{{ item.id }}">
@@ -993,6 +1048,18 @@
         </div>
     </div>
 
+    <div id="recommendModal">
+        <div class="modal-header">
+            <button onclick="closeRecommendModal()">✕</button>
+            <h3>임박 재료 레시피 추천</h3>
+            <div style="width:40px;"></div>
+        </div>
+        <div style="padding: 15px 20px 0 20px; color: var(--text-sub); font-size: 0.85rem;">
+            곧 소비기한이 다가오는 재료를 가장 많이 쓰는 순서예요.
+        </div>
+        <div id="recommendBody" style="flex: 1; overflow-y: auto; padding: 15px;"></div>
+    </div>
+
     <input type="file" id="receiptFile" accept="image/*" style="display:none;" onchange="uploadReceipt()">
 
     <div id="loadingModal"
@@ -1014,6 +1081,12 @@
     </style>
 
     <script>
+        let myStaples = [];
+        fetch('/api/staples')
+            .then(r => r.json())
+            .then(d => { myStaples = d.staples; })
+            .catch(() => { });
+
         function triggerCamera() {
             toggleFabMenu();
             document.getElementById('receiptFile').click();
@@ -1141,6 +1214,9 @@
                         <span class="ing-chip ${myIngs.includes(i) ? 'ing-have' : 'ing-lack'}">
                             ${i}
                         </span>
+                    `).join('')}
+                    ${(recipe.staple_ingredients || []).map(i => `
+                        <span class="ing-chip ing-staple">${i}</span>
                     `).join('')}
                 </div>
             </div>
@@ -1324,6 +1400,62 @@
             }
         }
 
+        async function openRecommendModal() {
+            const modal = document.getElementById('recommendModal');
+            const body = document.getElementById('recommendBody');
+            body.innerHTML = '<p style="text-align:center; color:#999; margin-top:40px;">분석 중...</p>';
+            modal.style.display = 'flex';
+            history.pushState({ page: 'recommend' }, "추천", "#recommend");
+
+            try {
+                const res = await fetch('/api/recipes/recommend');
+                if (!res.ok) throw new Error();
+                const recipes = await res.json();
+
+                if (!recipes.length) {
+                    body.innerHTML = '<p style="text-align:center; color:#999; margin-top:40px;">지금 급하게 써야 할 재료로 만들 수 있는 레시피가 없어요.</p>';
+                    return;
+                }
+
+                const myIngs = Array.from(document.querySelectorAll('#refrigeratorPage .name')).map(el => el.innerText.trim());
+
+                body.innerHTML = recipes.map((recipe, idx) => {
+                    const urgentMap = {};
+                    recipe.urgent_items.forEach(u => { urgentMap[u.name] = u.d_day; });
+
+                    const chips = recipe.ingredients.map(i => {
+                        if (i in urgentMap) {
+                            const d = urgentMap[i];
+                            return `<span class="ing-chip ing-urgent">${i} ${d === 0 ? 'D-Day' : 'D-' + d}</span>`;
+                        }
+                        return `<span class="ing-chip ${myIngs.includes(i) ? 'ing-have' : 'ing-lack'}">${i}</span>`;
+                    }).join('') + (recipe.staple_ingredients || [])
+                        .map(i => `<span class="ing-chip ing-staple">${i}</span>`).join('');
+
+                    return `
+            <div class="recipe-card ranked" onclick="openRecipeDetail(${recipe.id})">
+                <div class="rank-badge">${idx + 1}</div>
+                <img src="${recipe.image_url || 'https://via.placeholder.com/100?text=No+Image'}" class="recipe-img">
+                <div class="recipe-content">
+                    <span class="match-rate">${recipe.match_rate}% 보유</span>
+                    <div style="font-weight:800; color:var(--text-main); font-size:1.05rem;">${recipe.name}</div>
+                    <div class="ing-status-wrap">${chips}</div>
+                </div>
+            </div>`;
+                }).join('');
+            } catch (e) {
+                body.innerHTML = '<p style="text-align:center; color:#ff4d4f; margin-top:40px;">불러오기에 실패했습니다.</p>';
+            }
+        }
+
+        function closeRecommendModal() {
+            if (window.location.hash === "#recommend") {
+                history.back();
+            } else {
+                document.getElementById('recommendModal').style.display = 'none';
+            }
+        }
+
         function switchTab(tabName, el) {
             const sortMenu = document.getElementById('sortMenu');
             if (sortMenu) sortMenu.style.display = 'none';
@@ -1389,11 +1521,15 @@
             const addPage = document.getElementById('addPage');
             const deletePage = document.getElementById('deletePage');
             const consumeModal = document.getElementById('consumeModal');
+            const recommendModal = document.getElementById('recommendModal');
 
             if (detailModal) detailModal.style.display = 'none';
             if (addPage) addPage.style.display = 'none';
             if (deletePage) deletePage.style.display = 'none';
             if (consumeModal) consumeModal.style.display = 'none';
+            if (recommendModal && window.location.hash !== '#recommend') {
+                recommendModal.style.display = 'none';
+            }
 
             const fabMenu = document.getElementById('fabSubMenu');
             if (fabMenu) fabMenu.style.display = 'none';
@@ -1458,12 +1594,15 @@
             const grid = document.getElementById('ingredientGrid');
             const myIngs = Array.from(document.querySelectorAll('#refrigeratorPage .name')).map(el => el.innerText.trim());
 
-            grid.innerHTML = data.map(item => `
-        <div class="ing-item ${selectedItems.has(item.name) ? 'selected' : ''} ${myIngs.includes(item.name) ? 'disabled' : ''}" 
+            grid.innerHTML = data.map(item => {
+                const isStaple = myStaples.includes(item.name);
+                const disabled = isStaple || myIngs.includes(item.name);
+                return `
+        <div class="ing-item ${selectedItems.has(item.name) ? 'selected' : ''} ${disabled ? 'disabled' : ''}" 
              onclick="toggleItem('${item.name}', this)">
-            ${item.name}
-        </div>
-    `).join('');
+            ${item.name}${isStaple ? '<br><span style="font-size:0.65rem;">(기본 재료)</span>' : ''}
+        </div>`;
+            }).join('');
         }
 
         function toggleItem(name, el) {

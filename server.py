@@ -282,16 +282,20 @@ def main_page(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse(url="/", status_code=303)
 
     try:
+        staples = get_user_staples(db, user_id)
         items = db.query(models.Item).filter(models.Item.user_id == user_id).order_by(models.Item.expiry_date.is_(None), models.Item.expiry_date.asc()).all()
         today = date.today()
         processed_items = []
         for item in items:
+            if item.name in staples:
+                continue  # 기본 재료는 냉장고 목록에서 숨김
             d_day = (item.expiry_date - today).days if item.expiry_date else None
             processed_items.append({"id": item.id, "name": item.name, "expiry_date": item.expiry_date, "d_day": d_day})
-        
-        response = templates.TemplateResponse(request=request, name="index.html", context={"items": processed_items, "current_user": user_id})
+
+        response = templates.TemplateResponse(request=request, name="index.html", context={"items": processed_items, "current_user": user_id, "staples": sorted(staples)})
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         return response
+    
     except Exception as e:
         response = templates.TemplateResponse(request=request, name="index.html", context={"items": [], "error": str(e)})
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
@@ -397,37 +401,179 @@ def delete_shopping_item(request: Request, item_id: int = Path(...), db: Session
     db.commit()
     return RedirectResponse(url="/shopping", status_code=303)
 
+# 기본 재료 초기값 - 실제 레시피 재료명과 일치해야 효과가 있어요 (아래 SQL로 확인)
+DEFAULT_STAPLES = ["소금", "설탕", "후추", "간장", "참기름", "식용유", "고춧가루", "다진마늘", "물"]
+
+def get_user_staples(db: Session, user_id: int) -> set:
+    """기본값 + 사용자가 추가한 것 - 사용자가 제거한 것"""
+    staples = set(DEFAULT_STAPLES)
+    for row in db.query(models.UserStaple).filter(models.UserStaple.user_id == user_id).all():
+        if row.is_staple:
+            staples.add(row.ingredient_name)
+        else:
+            staples.discard(row.ingredient_name)
+    return staples
+
+class StapleRequest(BaseModel):
+    name: str
+
+@app.get("/api/staples")
+def get_staples(request: Request, db: Session = Depends(get_db)):
+    user_id = get_current_user_id(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+    return {"staples": sorted(get_user_staples(db, user_id))}
+
+@app.post("/api/staples")
+def add_staple(body: StapleRequest, request: Request, db: Session = Depends(get_db)):
+    user_id = get_current_user_id(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+    name = body.name.strip()
+    if not name or len(name) > 100:
+        raise HTTPException(status_code=400, detail="잘못된 재료명입니다.")
+
+    row = db.query(models.UserStaple).filter(
+        models.UserStaple.user_id == user_id, models.UserStaple.ingredient_name == name
+    ).first()
+    if name in DEFAULT_STAPLES:
+        if row:
+            db.delete(row)  # "제거함" 표시를 지우면 기본값으로 복구
+    elif row:
+        row.is_staple = True
+    else:
+        db.add(models.UserStaple(user_id=user_id, ingredient_name=name, is_staple=True))
+    db.commit()
+    return {"status": "success"}
+
+@app.delete("/api/staples")
+def remove_staple(name: str, request: Request, db: Session = Depends(get_db)):
+    user_id = get_current_user_id(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+    name = name.strip()
+
+    row = db.query(models.UserStaple).filter(
+        models.UserStaple.user_id == user_id, models.UserStaple.ingredient_name == name
+    ).first()
+    if name in DEFAULT_STAPLES:
+        if row:
+            row.is_staple = False
+        else:
+            db.add(models.UserStaple(user_id=user_id, ingredient_name=name, is_staple=False))
+    elif row:
+        db.delete(row)
+    db.commit()
+    return {"status": "success"}
+
 # ---------------------------------------------------------
 # 4. 레시피 및 OCR 스캔 연동
 # ---------------------------------------------------------
 @app.get("/api/recipes")
 def get_recipes(request: Request, db: Session = Depends(get_db)):
     current_user_id = get_current_user_id(request)
-    
+
     all_raw_recipes = db.query(models.Recipe).all()
     favorite_ids = set()
     usage_counts = {}
+    staples = set()
     if current_user_id:
         favs = db.query(models.Favorite.recipe_id).filter(models.Favorite.user_id == current_user_id).all()
         favorite_ids = {f[0] for f in favs}
 
-        # 레시피별 사용 횟수 집계
         counts = db.query(models.MealLog.recipe_id, func.count(models.MealLog.id)).filter(
             models.MealLog.user_id == current_user_id
         ).group_by(models.MealLog.recipe_id).all()
         usage_counts = {rid: cnt for rid, cnt in counts}
 
+        staples = get_user_staples(db, current_user_id)
+
     results = []
     for r in all_raw_recipes:
         rid = getattr(r, 'recipe_id', None) or getattr(r, 'id', None)
         ings = db.query(models.RecipeIngredient.ingredient_name).filter(models.RecipeIngredient.recipe_id == rid).all()
+        ing_names = [i[0] for i in ings]
+        visible_ings = [n for n in ing_names if n not in staples]
+        staple_ings = [n for n in ing_names if n in staples]
+        if not visible_ings:  # 전부 기본 재료면 0으로 나누기 방지를 위해 원본 유지
+            visible_ings, staple_ings = ing_names, []
         results.append({
-            "id": rid, "name": r.name, "ingredients": [i[0] for i in ings],
+            "id": rid, "name": r.name, "ingredients": visible_ings,
+            "staple_ingredients": staple_ings,
             "favorite": rid in favorite_ids, "image_url": r.image_url or "",
             "instructions": r.instructions or "", "original_ingredients": r.original_ingredients or "",
             "used_count": usage_counts.get(rid, 0)
         })
     return results
+
+def urgency_weight(d_day):
+    """남은 일수 -> 긴급도 점수. 만료(음수)는 먹도록 유도하면 안 되므로 0점."""
+    if d_day is None or d_day < 0:
+        return 0
+    if d_day <= 1:
+        return 4
+    if d_day <= 3:
+        return 3
+    if d_day <= 7:
+        return 1
+    return 0
+
+@app.get("/api/recipes/recommend")
+def recommend_recipes(request: Request, db: Session = Depends(get_db)):
+    user_id = get_current_user_id(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+
+    today = date.today()
+    fridge_items = db.query(models.Item).filter(models.Item.user_id == user_id).all()
+
+    staples = get_user_staples(db, user_id)
+    my_ing_names = set()
+    ing_dday = {}  # 재료명 -> 가장 급한 D-day
+    for item in fridge_items:
+        d = (item.expiry_date - today).days if item.expiry_date else None
+        if d is not None and d < 0:
+            continue  # 만료된 재료는 보유 재료로 치지 않음
+        my_ing_names.add(item.name)
+        if d is not None and (item.name not in ing_dday or d < ing_dday[item.name]):
+            ing_dday[item.name] = d
+
+    # 레시피 재료를 한 번에 조회 (레시피마다 쿼리하지 않도록)
+    recipe_ings = {}
+    rows = db.query(models.RecipeIngredient.recipe_id, models.RecipeIngredient.ingredient_name).all()
+    for rid, name in rows:
+        lst = recipe_ings.setdefault(rid, [])
+        if name not in lst:
+            lst.append(name)
+
+    scored = []
+    for r in db.query(models.Recipe).all():
+        all_ings = recipe_ings.get(r.recipe_id, [])
+        ings = [i for i in all_ings if i not in staples]
+        staple_ings = [i for i in all_ings if i in staples]
+        if not ings:
+            continue
+
+        have = [i for i in ings if i in my_ing_names]
+        urgent = [(i, ing_dday[i]) for i in have if urgency_weight(ing_dday.get(i)) > 0]
+        if not urgent:
+            continue  # 임박 재료를 하나도 안 쓰면 추천 대상 아님
+
+        urgent.sort(key=lambda x: x[1])
+        scored.append({
+            "id": r.recipe_id,
+            "name": r.name,
+            "image_url": r.image_url or "",
+            "ingredients": ings,
+            "match_rate": round(len(have) / len(ings) * 100),
+            "staple_ingredients": staple_ings,
+            "urgency_score": sum(urgency_weight(d) for _, d in urgent),
+            "urgent_items": [{"name": n, "d_day": d} for n, d in urgent]
+        })
+
+    # 임박도 점수 높은 순, 동점이면 보유율 높은 순
+    scored.sort(key=lambda x: (-x["urgency_score"], -x["match_rate"]))
+    return scored[:3]
 
 @app.post("/api/recipes/{recipe_id}/favorite")
 async def toggle_favorite(recipe_id: int, request: Request, db: Session = Depends(get_db)):
@@ -452,7 +598,8 @@ def match_recipe_items(recipe_id: int, request: Request, db: Session = Depends(g
     recipe_ingredients = db.query(models.RecipeIngredient.ingredient_name).filter(
         models.RecipeIngredient.recipe_id == recipe_id
     ).all()
-    ingredient_names = [i[0] for i in recipe_ingredients]
+    staples = get_user_staples(db, user_id)
+    ingredient_names = [i[0] for i in recipe_ingredients if i[0] not in staples]
 
     fridge_items = db.query(models.Item).filter(models.Item.user_id == user_id).all()
 
@@ -635,9 +782,12 @@ async def scan_receipt(
         # -------------------------------------------------------------
         saved_count = 0
         final_parsed_items = []
+        staples = get_user_staples(db, user_id)
 
         for clean_name in clean_item_names:
-            final_name = clean_name[:30] # DB 터짐 방지 30자 커트
+            final_name = clean_name[:30]
+            if final_name in staples:
+                continue  # 기본 재료는 냉장고에 등록하지 않음
             expiry_str = (date.today() + timedelta(days=7)).strftime('%Y-%m-%d')
             expiry = datetime.strptime(expiry_str, '%Y-%m-%d').date()
 
@@ -713,9 +863,12 @@ def check_expiry_and_queue_notifications():
         users = db.query(models.User).filter(models.User.notification_time == now).all()
 
         for user in users:
+            staples = get_user_staples(db, user.id)
             items = db.query(models.Item).filter(models.Item.user_id == user.id, models.Item.expiry_date.isnot(None)).all()
             urgent_items = []
             for item in items:
+                if item.name in staples:
+                    continue
                 d_day = (item.expiry_date - today).days
                 if d_day in [0, 1, 2, 3]:
                     urgent_items.append(f"{item.name}(D-{d_day})" if d_day != 0 else f"{item.name}(D-Day)")
