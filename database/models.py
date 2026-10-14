@@ -15,6 +15,7 @@ class User(Base):
     favorites = relationship("Favorite", back_populates="user", cascade="all, delete-orphan")
     shopping_items = relationship("ShoppingList", back_populates="user", cascade="all, delete-orphan")
     meal_logs = relationship("MealLog", back_populates="user", cascade="all, delete-orphan")
+    staples = relationship("UserStaple", cascade="all, delete-orphan")
     
 # 내 냉장고 재료
 class Item(Base):
@@ -89,3 +90,13 @@ class MealLog(Base):
     consumed_at = Column(DateTime, default=func.now())
 
     user = relationship("User", back_populates="meal_logs")
+
+# 사용자별 기본 재료(항상 보유) 설정
+class UserStaple(Base):
+    __tablename__ = "user_staples"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    ingredient_name = Column(String(100), nullable=False)
+    is_staple = Column(Boolean, nullable=False, default=True)  # False면 "기본값에서 제거함"
+
+    __table_args__ = (UniqueConstraint('user_id', 'ingredient_name', name='_user_staple_uc'),)
