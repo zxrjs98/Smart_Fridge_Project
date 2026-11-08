@@ -685,127 +685,304 @@ def delete_meal_logs(request: Request, db: Session = Depends(get_db)):
     return {"status": "success"}
 
 # 네이버 OCR 통신 코드
+
 import json
 from openai import OpenAI
 
 @app.post("/scan_receipt")
 async def scan_receipt(
-    request: Request, 
-    receipt: UploadFile = File(...), 
+    request: Request,
+    receipt: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
     user_id = get_current_user_id(request)
     if not user_id:
-        return {"status": "error", "message": "로그인이 필요합니다."}
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
 
     invoke_url = os.getenv("OCR_INVOKE_URL")
     secret_key = os.getenv("OCR_SECRET_KEY")
-    openai_api_key = os.getenv("OPENAI_API_KEY") # OpenAI API 키 로드
+    openai_api_key = os.getenv("OPENAI_API_KEY")
 
-    if not invoke_url or not secret_key:
-        return {"status": "error", "message": "네이버 OCR API 키가 없습니다. .env 파일을 확인해주세요!"}
-    if not openai_api_key:
-        return {"status": "error", "message": "OpenAI API 키가 없습니다. .env 파일에 OPENAI_API_KEY를 추가해주세요!"}
+    if not invoke_url or not secret_key or not openai_api_key:
+        raise HTTPException(status_code=500, detail=".env의 OCR/OpenAI API 설정을 확인해주세요.")
 
     try:
-        # -------------------------------------------------------------
-        # 네이버 OCR로 영수증 스캔 
-        # -------------------------------------------------------------
+        # 1. 네이버 CLOVA OCR: 영수증 상품명 추출
         image_bytes = await receipt.read()
-        ext = receipt.filename.split('.')[-1] if '.' in receipt.filename else 'png'
+        if not image_bytes:
+            raise HTTPException(status_code=400, detail="영수증 이미지가 비어 있습니다.")
+        if len(image_bytes) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="10MB 이하의 이미지를 올려주세요.")
+
+        filename = receipt.filename or "receipt.png"
+        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "png"
+        if ext not in {"png", "jpg", "jpeg"}:
+            raise HTTPException(status_code=400, detail="PNG 또는 JPG 영수증 이미지를 사용해주세요.")
 
         request_json = {
-            'images': [{'format': ext, 'name': 'receipt_test'}],
-            'requestId': str(uuid.uuid4()),
-            'version': 'V2',
-            'timestamp': int(round(time.time() * 1000)),
-            'receipt': {
-                'enable': True 
-            }
+            "images": [{"format": ext, "name": "receipt_scan"}],
+            "requestId": str(uuid.uuid4()),
+            "version": "V2",
+            "timestamp": int(time.time() * 1000),
+            "receipt": {"enable": True}
         }
+        response = requests.post(
+            invoke_url,
+            headers={"X-OCR-SECRET": secret_key},
+            data={"message": json.dumps(request_json).encode("utf-8")},
+            files=[("file", (filename, image_bytes, receipt.content_type or "image/png"))],
+            timeout=45
+        )
+        response.raise_for_status()
+        ocr_result = response.json()
 
-        payload = {'message': json.dumps(request_json).encode('UTF-8')}
-        files = [('file', (receipt.filename, image_bytes, receipt.content_type))]
-        headers = {'X-OCR-SECRET': secret_key}
-
-        response = requests.post(invoke_url, headers=headers, data=payload, files=files)
-        result = response.json()
-
-        # 영수증에서 뽑아낸 텍스트 리스트 
         raw_items = []
-        if 'images' in result and len(result['images']) > 0:
-            image_data = result['images'][0]
-            if 'receipt' in image_data and 'result' in image_data['receipt']:
-                receipt_result = image_data['receipt']['result']
-                if 'subResults' in receipt_result and len(receipt_result['subResults']) > 0:
-                    items = receipt_result['subResults'][0].get('items', [])
-                    for item in items:
-                        name = item.get('name', {}).get('text', '').strip()
-                        if name:
-                            raw_items.append(name)
+        for image in ocr_result.get("images", []):
+            receipt_info = image.get("receipt", {}).get("result", {})
+            for sub_result in receipt_info.get("subResults", []):
+                for item in sub_result.get("items", []):
+                    raw_name = item.get("name", {}).get("text", "")
+                    if isinstance(raw_name, str) and raw_name.strip():
+                        raw_items.append(raw_name.strip())
 
         if not raw_items:
-            # 영수증에서 아무것도 못 읽었을 때
-            return {"status": "success", "items": [{"name": "인식 불가", "expiry_date": ""}], "saved_count": 0}
+            return {"status": "success", "items": [], "ingredient_names": []}
 
-        # -------------------------------------------------------------
-        # OpenAI
-        # -------------------------------------------------------------
-        client = OpenAI(api_key=openai_api_key)
+        # 2. 653개 표준 재료명은 기존 master_ingredients를 기준으로 사용
+        valid_names = {
+            row[0] for row in db.query(models.MasterIngredient.name).all()
+            if row[0]
+        }
+        if not valid_names:
+            raise HTTPException(status_code=500, detail="표준 재료 사전이 비어 있습니다.")
 
-        # AI 프롬프트 (여기에 규칙을 마음껏 추가할 것)
+        # 3. 영수증 상품명 오타 보정 + 표준 재료명 매칭 (기존 한 번의 요청으로 처리)
         system_prompt = """
-        너는 스마트 냉장고의 식재료 분류 AI 데이터 엔지니어 역할을 맡고 있어.
-        사용자가 영수증의 상품명 리스트를 주면, 요리에 쓰이는 '표준 식재료명'으로만 정제해서 JSON 형태로 반환해.
-        
-        [정제 규칙]
-        1. 브랜드명(예: 롯데), 용도(예: 구이용, 찌개용), 용량, 괄호 안의 내용은 완벽히 제거해.
-        2. 오타(예: 검은콩무유 -> 우유)나 고유 제품명(예: 제빵왕김탁구 -> 빵)은 문맥을 파악해서 '표준 재료명'으로 바꿔.
-        3. 공산품(예: 종량제봉투, 숟가락)이나 먹을 수 없는 식재료가 아닌 것들은 아예 결과 리스트에서 제외해버려.
-        4. 응답은 반드시 {"items": ["돼지고기", "우유", "칼국수면"]} 같은 형태의 JSON 포맷으로 대답해야 해.
+        너는 영수증에 인쇄된 상품명을 읽기 쉬운 이름으로 보정하고, 재료 사전과 연결하는 도우미야.
+
+        [상품명 보정]
+        1. 입력 상품마다 결과 1개를 작성하고 index를 정확히 보존한다.
+        2. corrected에는 확신할 수 있는 인식 오타, 기호, 띄어쓰기만 수정한다.
+        3. 상품 종류가 불확실하면 특정 종류를 추측해 확정하지 않는다.
+        예: '검은쿵무유'는 검은콩 음료일 가능성이 있지만 두유/우유 여부는 불명확하다.
+        4. 원래 브랜드, 부위, 식품의 정체는 가능한 한 유지한다.
+
+        [표준 재료명 매칭]
+        5. matched는 반드시 제공된 표준 재료명 목록 중 하나 또는 null이어야 한다.
+        6. 돼지 목심, 돼지 삼겹 등은 더 구체적인 이름이 목록에 없다면
+        요리 재료의 공통 범주인 '돼지고기'로 연결해도 된다.
+        7. '복분자 막걸리'를 '복분자'로, '검은콩 음료'를 '검은콩'으로 연결하지 않는다.
+        이런 경우 적절한 음료명이 목록에 없으면 matched는 null이다.
+        8. 다른 상품을 하나로 합치거나 누락하지 않는다.
+
+        반드시 다음 JSON 객체 형태로만 대답한다.
+        {"items": [
+        {"index": 0, "corrected": "국내산 생강", "matched": "생강"},
+        {"index": 1, "corrected": null, "matched": null}
+        ]}
         """
 
+        indexed_items = [
+            {"index": i, "original": name}
+            for i, name in enumerate(raw_items)
+        ]
+        client = OpenAI(api_key=openai_api_key)
         completion = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"다음 영수증 리스트를 정제해줘: {json.dumps(raw_items, ensure_ascii=False)}"}
+                {
+                    "role": "user",
+                    "content": (
+                        "표준 재료명 목록:\n"
+                        + json.dumps(sorted(valid_names), ensure_ascii=False)
+                        + "\n영수증 상품들:\n"
+                        + json.dumps(indexed_items, ensure_ascii=False)
+                    )
+                }
             ],
             response_format={"type": "json_object"}
         )
+        parsed = json.loads(completion.choices[0].message.content)
 
-        ai_response = json.loads(completion.choices[0].message.content)
-        clean_item_names = ai_response.get("items", [])
+        # 결과가 일부 누락되어도 원본 1:1 목록을 지킵니다.
+        corrected_by_index = [None] * len(raw_items)
+        matched_by_index = [None] * len(raw_items)
 
-        # -------------------------------------------------------------
-        # DB에 저장
-        # -------------------------------------------------------------
-        saved_count = 0
-        final_parsed_items = []
-        staples = get_user_staples(db, user_id)
+        for entry in parsed.get("items", []):
+            if not isinstance(entry, dict):
+                continue
+            index = entry.get("index")
+            if type(index) is not int or not (0 <= index < len(raw_items)):
+                continue
 
-        for clean_name in clean_item_names:
-            final_name = clean_name[:30]
-            if final_name in staples:
-                continue  # 기본 재료는 냉장고에 등록하지 않음
-            expiry_str = (date.today() + timedelta(days=7)).strftime('%Y-%m-%d')
-            expiry = datetime.strptime(expiry_str, '%Y-%m-%d').date()
+            corrected = entry.get("corrected")
+            matched = entry.get("matched")
+            if isinstance(corrected, str) and corrected.strip():
+                corrected_by_index[index] = corrected.strip()
+            if isinstance(matched, str) and matched.strip() in valid_names:
+                matched_by_index[index] = matched.strip()
 
-            new_item = models.Item(name=final_name, expiry_date=expiry, user_id=user_id)
-            db.add(new_item)
-            saved_count += 1
-            
-            final_parsed_items.append({"name": final_name, "expiry_date": expiry_str})
-        
-        db.commit() # DB 쾅! 저장 완료
+        # 확실하지 않은 오분류를 막고, 기존의 돼지고기 매칭은 유지한다.
+        # 이 규칙은 관찰된 사례에 대한 최소한의 보정이며, 전체 상품명을 해결하지는 않는다.
+        for i, raw in enumerate(raw_items):
+            corrected = corrected_by_index[i] or raw
+            matched = matched_by_index[i]
 
-        return {"status": "success", "items": final_parsed_items, "saved_count": saved_count}
+            # 음료를 구성 원재료로 잘못 저장하지 않는다.
+            if "막걸리" in raw and matched == "복분자":
+                matched_by_index[i] = None
 
-    except Exception as e:
+            # '무유'는 우유와 두유 중 어느 쪽인지 불명확한 오인식.
+            if "검은쿵무유" in raw.replace(" ", "") or (
+                "검은콩" in corrected and "무유" in corrected
+            ):
+                corrected_by_index[i] = corrected.replace("검은쿵", "검은콩").replace(
+                    "무유", "음료 (종류 확인 필요)"
+                )
+                if matched in {"검은콩", "콩"}:
+                    matched_by_index[i] = None
+
+            # 돼지 목심/삼겹 부위는 레시피 DB에서 허용하는 상위 분류로 연결.
+            if (matched_by_index[i] is None and "돼지고기" in valid_names
+                    and "돼지" in raw and any(k in raw for k in ("목심", "목살", "삼겹"))):
+                matched_by_index[i] = "돼지고기"
+
+        results = [
+            {
+                "original": raw,
+                "corrected": corrected_by_index[i],
+                "matched": matched_by_index[i]
+            }
+            for i, raw in enumerate(raw_items)
+        ]
+        print("OCR 인식 결과:", raw_items)
+        print("상품명 보정 및 재료 매칭:", results)
+
+        # 중요: 여기서는 db.add/db.commit을 수행하지 않습니다.
+        return {
+            "status": "success",
+            "items": results,
+            "ingredient_names": sorted(valid_names)
+        }
+
+    except HTTPException:
+        raise
+    except Exception:
         import traceback
-        traceback.print_exc() 
-        return {"status": "error", "message": f"서버 에러 발생: {str(e)}"}
-    
+        traceback.print_exc()
+        return {"status": "error", "message": "영수증 분석 중 오류가 발생했습니다. 서버 로그를 확인해주세요."}
+
+
+@app.post("/scan_receipt/save")
+async def save_scanned_receipt_items(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    user_id = get_current_user_id(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+
+    payload = await request.json()
+    entries = payload.get("items") if isinstance(payload, dict) else None
+    if not isinstance(entries, list) or not 1 <= len(entries) <= 100:
+        raise HTTPException(status_code=400, detail="저장할 재료를 1~100개 선택해주세요.")
+
+    valid_names = {
+        row[0] for row in db.query(models.MasterIngredient.name).all()
+    }
+    staples = get_user_staples(db, user_id)
+    checked = []
+    skipped = 0
+
+    # 일부 항목이 잘못되면 DB에 아무것도 저장하지 않도록 먼저 모두 검증합니다.
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise HTTPException(status_code=400, detail="잘못된 재료 데이터입니다.")
+        name = entry.get("name")
+        expiry_text = entry.get("expiry_date") or ""
+        if not isinstance(name, str):
+            raise HTTPException(status_code=400, detail="재료명 형식이 올바르지 않습니다.")
+        name = name.strip()
+        if name not in valid_names:
+            raise HTTPException(status_code=400, detail=f"표준 재료 사전에 없는 재료입니다: {name}")
+        if name in staples:
+            skipped += 1
+            continue  # 기존 코드와 동일: 기본 재료는 별도 저장하지 않음
+
+        if not isinstance(expiry_text, str):
+            raise HTTPException(status_code=400, detail="소비기한 형식이 올바르지 않습니다.")
+        try:
+            expiry_date = datetime.strptime(expiry_text, "%Y-%m-%d").date() if expiry_text else None
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"{name}의 소비기한이 올바르지 않습니다.")
+        checked.append(models.Item(name=name, expiry_date=expiry_date, user_id=user_id))
+
+    try:
+        db.add_all(checked)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    return {"status": "success", "saved_count": len(checked), "skipped_count": skipped}
+
+
+
+@app.post("/scan_receipt/save")
+async def save_scanned_receipt_items(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    user_id = get_current_user_id(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+
+    payload = await request.json()
+    entries = payload.get("items") if isinstance(payload, dict) else None
+    if not isinstance(entries, list) or not 1 <= len(entries) <= 100:
+        raise HTTPException(status_code=400, detail="저장할 재료를 1~100개 선택해주세요.")
+
+    valid_names = {
+        row[0] for row in db.query(models.MasterIngredient.name).all()
+    }
+    staples = get_user_staples(db, user_id)
+    checked = []
+    skipped = 0
+
+    # 일부 항목이 잘못되면 DB에 아무것도 저장하지 않도록 먼저 모두 검증합니다.
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise HTTPException(status_code=400, detail="잘못된 재료 데이터입니다.")
+        name = entry.get("name")
+        expiry_text = entry.get("expiry_date") or ""
+        if not isinstance(name, str):
+            raise HTTPException(status_code=400, detail="재료명 형식이 올바르지 않습니다.")
+        name = name.strip()
+        if name not in valid_names:
+            raise HTTPException(status_code=400, detail=f"표준 재료 사전에 없는 재료입니다: {name}")
+        if name in staples:
+            skipped += 1
+            continue  # 기존 코드와 동일: 기본 재료는 별도 저장하지 않음
+
+        if not isinstance(expiry_text, str):
+            raise HTTPException(status_code=400, detail="소비기한 형식이 올바르지 않습니다.")
+        try:
+            expiry_date = datetime.strptime(expiry_text, "%Y-%m-%d").date() if expiry_text else None
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"{name}의 소비기한이 올바르지 않습니다.")
+        checked.append(models.Item(name=name, expiry_date=expiry_date, user_id=user_id))
+
+    try:
+        db.add_all(checked)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    return {"status": "success", "saved_count": len(checked), "skipped_count": skipped}
+
+
 # ---------------------------------------------------------
 # 5. 웹 푸시 알림 및 스케줄러 시스템
 # ---------------------------------------------------------

