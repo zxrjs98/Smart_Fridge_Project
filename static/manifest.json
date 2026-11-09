@@ -4,15 +4,15 @@
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#4CAF50",
+  "theme_color": "#ffffff",
   "icons": [
     {
-      "src": "/static/images/leaf.png",  
+      "src": "/static/images/fresh.png",  
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/static/images/leaf.png",  
+      "src": "/static/images/fresh.png",  
       "sizes": "512x512",
       "type": "image/png"
     }
