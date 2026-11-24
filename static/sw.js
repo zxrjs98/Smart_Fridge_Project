@@ -27,7 +27,8 @@ self.addEventListener('push', function(event) {
         vibrate: [100, 50, 100],
         data: {
             dateOfArrival: Date.now(),
-            primaryKey: '2'
+            primaryKey: '2',
+            url: data.url || '/main'
         }
     };
 
@@ -57,6 +58,22 @@ self.addEventListener('notificationclick', function(event) {
                 // '/'를 넣으면 서비스 워커가 구동 중인 최상위 루트 경로(메인 페이지)가 열립니다.
                 return clients.openWindow('/'); 
             }
+        })
+    );
+});
+
+self.addEventListener('notificationclick', function (event) {
+    event.notification.close();
+    const url = (event.notification.data && event.notification.data.url) || '/main';
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
+            for (const c of list) {
+                if ('navigate' in c) {
+                    return c.navigate(url).then(function (w) { return w && w.focus(); });
+                }
+            }
+            return clients.openWindow(url);
         })
     );
 });

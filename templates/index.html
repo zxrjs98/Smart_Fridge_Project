@@ -964,6 +964,10 @@
 
     <div class="fab-group" id="mainFab">
         <div id="fabSubMenu" class="fab-submenu">
+            <button onclick="location.href='/shopping'" style="display: flex; align-items: center; gap: 8px; color: #f39c12;">
+                <span class="material-icons" style="font-size: 18px; color: #f39c12;">shopping_cart</span>
+                장보기
+            </button>
             <button onclick="triggerCamera()" style="display: flex; align-items: center; gap: 8px; color: #34a853;">
                 <span class="material-icons" style="font-size: 18px; color: #34a853;">document_scanner</span>
                 영수증 스캔
@@ -1029,6 +1033,12 @@
                     onclick="openConsumeModal(currentDetailRecipe.id, currentDetailRecipe.name)">
                     <span class="material-icons" style="vertical-align: middle; font-size: 20px;">check_circle</span>
                     요리 완료 (재료 사용)
+                </button>
+                <button class="main-action-btn" style="margin-top: 10px; background: #f1f3f5; color: var(--text-main);"
+                    onclick="addMissingToShopping(currentDetailRecipe.id)">
+                    <span class="material-icons"
+                        style="vertical-align: middle; font-size: 20px;">add_shopping_cart</span>
+                    부족한 재료 장보기에 담기
                 </button>
             </div>
         </div>
@@ -1548,6 +1558,27 @@
             document.getElementById('consumeConfirmBtn').innerText = "완료 (0개 삭제)";
             document.getElementById('consumeModal').style.display = 'flex';
             history.pushState({ page: 'consume' }, "재료 사용", "#consume");
+        }
+
+        async function addMissingToShopping(recipeId) {
+            try {
+                const res = await fetch('/api/shopping/from-recipe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ recipe_id: recipeId })
+                });
+                if (!res.ok) throw new Error();
+                const d = await res.json();
+
+                let msg = d.added.length
+                    ? `${d.added.length}개를 장보기에 담았어요: ${d.added.join(', ')}`
+                    : '새로 담을 재료가 없어요.';
+                if (d.already.length) msg += `\n이미 담겨 있음: ${d.already.length}개`;
+                if (d.skipped.length) msg += `\n재료 사전에 없어 제외: ${d.skipped.join(', ')}`;
+                alert(msg);
+            } catch (e) {
+                alert('장보기에 담지 못했어요.');
+            }
         }
 
         function toggleConsumeItem(itemId, el) {
@@ -2099,6 +2130,14 @@
         });
 
         document.addEventListener('DOMContentLoaded', updateTabCounts);
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const params = new URLSearchParams(location.search);
+            if (params.get('open') === 'recommend') {
+                history.replaceState(null, '', '/main');
+                openRecommendModal();
+            }
+        });
 
         ['refrigeratorPage', 'recipePage', 'favoritePage'].forEach(id => {
             document.getElementById(id).addEventListener('scroll', function () {

@@ -1,30 +1,450 @@
-<!-- templates/shopping.html -->
-<div class="shopping-container" style="padding: 20px; max-width: 500px; margin: auto;">
-    <div style="display: flex; align-items: center; margin-bottom: 20px;">
-        <a href="/mypage" style="background-color: #f1f3f5; border: 1px solid #ddd; padding: 8px 12px; border-radius: 5px; color: #333; text-decoration: none; font-size: 14px; font-weight: bold; margin-right: 15px; display: inline-block;">
-            ← 
-        </a>
-        <h2 style="margin: 0;">🛒 장보기 목록</h2>
-    </div>
-    
-    <!-- 아이템 추가 입력창 -->
-    <form action="/shopping/add" method="POST" style="display: flex; gap: 10px; margin-bottom: 20px;">
-        <input type="text" name="item_name" placeholder="필요한 재료를 입력하세요" required 
-               style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px;" autocomplete="off">
-        <button type="submit" style="background: #4A90E2; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">추가</button>
-    </form>
+<!DOCTYPE html>
+<html lang="ko">
 
-    <!-- 목록 리스트 -->
-    <ul style="list-style: none; padding: 0;">
-        {% for item in items %}
-        <li style="display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #eee;">
-            <span style="font-size: 16px;">{{ item.item_name }}</span>
-            <form action="/shopping/delete/{{ item.id }}" method="POST" style="margin: 0;">
-                <button type="submit" style="background-color: #ff4d4d; color: white; border: none; padding: 6px 14px; border-radius: 5px; cursor: pointer; font-size: 13px; font-weight: bold;">
-                    삭제
-                </button>
-            </form>
-        </li>
-        {% endfor %}
-    </ul>
-</div>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreshKeep - 장보기</title>
+    <link rel="manifest" href="/static/manifest.json">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        body {
+            background: #f4f6f8;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            font-family: 'Pretendard', sans-serif;
+        }
+
+        .app {
+            width: 100%;
+            max-width: 480px;
+            min-height: 100vh;
+            background: #f4f6f8;
+            padding-bottom: 110px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, .05);
+        }
+
+        .header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            height: 60px;
+            padding: 0 20px;
+            box-sizing: border-box;
+            background: #fff;
+            border-bottom: 1px solid #eee;
+        }
+
+        .back-btn {
+            background: transparent;
+            border: none;
+            color: #333;
+            font-size: 28px;
+            font-weight: bold;
+            width: 40px;
+            height: 40px;
+            margin-right: 10px;
+            cursor: pointer;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 900;
+            color: #333;
+        }
+
+        .content {
+            padding: 20px;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 14px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, .02);
+        }
+
+        .search-box {
+            display: flex;
+            align-items: center;
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 10px 14px;
+        }
+
+        .search-box .material-icons {
+            color: #adb5bd;
+            margin-right: 8px;
+        }
+
+        .search-box input {
+            flex: 1;
+            border: none;
+            background: none;
+            outline: none;
+            font-size: 16px;
+            font-family: inherit;
+        }
+
+        .results {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            max-height: 180px;
+            overflow-y: auto;
+        }
+
+        .result-chip {
+            padding: 8px 14px;
+            border-radius: 18px;
+            background: #eef6ff;
+            color: #4a90e2;
+            font-weight: 700;
+            font-size: .85rem;
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .result-chip.added {
+            background: #f1f3f5;
+            color: #adb5bd;
+            cursor: default;
+        }
+
+        .hint {
+            color: #adb5bd;
+            font-size: .85rem;
+            padding: 6px 2px;
+        }
+
+        .section-title {
+            font-size: 13px;
+            color: #888;
+            margin: 24px 0 10px 8px;
+        }
+
+        .list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            background: #fff;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, .02);
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+        }
+
+        .row:last-child {
+            border-bottom: none;
+        }
+
+        .check {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 2px solid #ced4da;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-sizing: border-box;
+        }
+
+        .check .material-icons {
+            font-size: 16px;
+            color: #fff;
+            display: none;
+        }
+
+        .row.bought .check {
+            background: #4a90e2;
+            border-color: #4a90e2;
+        }
+
+        .row.bought .check .material-icons {
+            display: block;
+        }
+
+        .name {
+            flex: 1;
+            font-size: 15px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .row.bought .name {
+            color: #adb5bd;
+            text-decoration: line-through;
+        }
+
+        .del {
+            background: none;
+            border: none;
+            color: #adb5bd;
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+        }
+
+        .empty {
+            text-align: center;
+            color: #bdc3c7;
+            padding: 36px 16px;
+            font-size: .9rem;
+            cursor: default;
+        }
+
+        .bottom-bar {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 480px;
+            padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
+            background: #fff;
+            box-shadow: 0 -5px 20px rgba(0, 0, 0, .05);
+            box-sizing: border-box;
+        }
+
+        .bottom-bar button {
+            width: 100%;
+            height: 52px;
+            border: none;
+            border-radius: 14px;
+            background: #4a90e2;
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 800;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 100px;
+            transform: translateX(-50%);
+            background: rgba(44, 62, 80, .92);
+            color: #fff;
+            padding: 10px 18px;
+            border-radius: 20px;
+            font-size: .85rem;
+            opacity: 0;
+            transition: opacity .2s;
+            pointer-events: none;
+            max-width: 80%;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+        <div class="header">
+            <button class="back-btn" onclick="goBack()">←</button>
+            <h1>장보기</h1>
+        </div>
+
+        <div class="content">
+            <div class="card">
+                <div class="search-box">
+                    <span class="material-icons">search</span>
+                    <input type="text" id="q" placeholder="재료를 검색해서 담으세요" autocomplete="off">
+                </div>
+                <div id="results" class="results"></div>
+            </div>
+
+            <div class="section-title" id="todoTitle">사야 할 재료</div>
+            <ul class="list" id="todoList"></ul>
+
+            <div id="doneSection" style="display:none;">
+                <div class="section-title" id="doneTitle">구매 완료</div>
+                <ul class="list" id="doneList"></ul>
+            </div>
+        </div>
+
+        <div class="bottom-bar" id="bottomBar">
+            <button id="toFridgeBtn" onclick="toFridge()">냉장고에 넣기</button>
+        </div>
+        <div class="toast" id="toast"></div>
+    </div>
+
+    <script>
+        let items = [];
+        let lastResults = [];
+        let timer = null;
+
+        function goBack() {
+            if (document.referrer && new URL(document.referrer).origin === location.origin) history.back();
+            else location.href = '/main';
+        }
+
+        async function api(url, options) {
+            const res = await fetch(url, options);
+            let data = null;
+            try { data = await res.json(); } catch (e) { }
+            return { ok: res.ok, status: res.status, data };
+        }
+
+        function toast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.style.opacity = 1;
+            clearTimeout(toast._t);
+            toast._t = setTimeout(() => t.style.opacity = 0, 2400);
+        }
+
+        async function load() {
+            const r = await api('/api/shopping');
+            if (r.status === 401) { location.href = '/'; return; }
+            items = r.data || [];
+            render();
+            renderResults();
+        }
+
+        function buildRow(item) {
+            const li = document.createElement('li');
+            li.className = 'row' + (item.is_bought ? ' bought' : '');
+            li.onclick = () => toggle(item.id);
+
+            const check = document.createElement('div');
+            check.className = 'check';
+            check.innerHTML = '<span class="material-icons">check</span>';
+
+            const name = document.createElement('span');
+            name.className = 'name';
+            name.textContent = item.name;
+
+            const del = document.createElement('button');
+            del.className = 'del';
+            del.innerHTML = '<span class="material-icons">close</span>';
+            del.onclick = (e) => { e.stopPropagation(); remove(item.id); };
+
+            li.append(check, name, del);
+            return li;
+        }
+
+        function fillList(id, arr, emptyMsg) {
+            const ul = document.getElementById(id);
+            ul.replaceChildren();
+            if (!arr.length && emptyMsg) {
+                const li = document.createElement('li');
+                li.className = 'empty';
+                li.textContent = emptyMsg;
+                ul.appendChild(li);
+                return;
+            }
+            arr.forEach(i => ul.appendChild(buildRow(i)));
+        }
+
+        function render() {
+            const todo = items.filter(i => !i.is_bought);
+            const done = items.filter(i => i.is_bought);
+
+            document.getElementById('todoTitle').textContent = `사야 할 재료 (${todo.length})`;
+            fillList('todoList', todo, '담긴 재료가 없어요. 위에서 검색해서 담아보세요.');
+
+            document.getElementById('doneSection').style.display = done.length ? 'block' : 'none';
+            document.getElementById('doneTitle').textContent = `구매 완료 (${done.length})`;
+            fillList('doneList', done, '');
+
+            document.getElementById('bottomBar').style.display = done.length ? 'block' : 'none';
+            document.getElementById('toFridgeBtn').textContent = `냉장고에 넣기 (${done.length}개)`;
+        }
+
+        async function toggle(id) {
+            const item = items.find(i => i.id === id);
+            if (!item) return;
+            item.is_bought = !item.is_bought;   // 먼저 화면에 반영
+            render();
+            const r = await api(`/api/shopping/${id}/toggle`, { method: 'POST' });
+            if (!r.ok) { toast('반영하지 못했어요.'); load(); }
+        }
+
+        async function remove(id) {
+            items = items.filter(i => i.id !== id);
+            render();
+            const r = await api(`/api/shopping/${id}`, { method: 'DELETE' });
+            if (!r.ok) { toast('삭제하지 못했어요.'); }
+            load();
+        }
+
+        function renderResults() {
+            const box = document.getElementById('results');
+            const q = document.getElementById('q').value.trim();
+            box.replaceChildren();
+            if (!q) return;
+            if (!lastResults.length) {
+                const d = document.createElement('div');
+                d.className = 'hint';
+                d.textContent = '재료 사전에 없는 항목이에요.';
+                box.appendChild(d);
+                return;
+            }
+            const listed = new Set(items.map(i => i.name));
+            lastResults.forEach(r => {
+                const b = document.createElement('button');
+                const added = listed.has(r.name);
+                b.className = 'result-chip' + (added ? ' added' : '');
+                b.textContent = added ? `${r.name} ✓` : r.name;
+                if (!added) b.onclick = () => add(r.name);
+                box.appendChild(b);
+            });
+        }
+
+        async function search(q) {
+            if (!q) { lastResults = []; renderResults(); return; }
+            const r = await api(`/items/search?q=${encodeURIComponent(q)}`);
+            lastResults = (r.data || []).slice(0, 40);
+            renderResults();
+        }
+
+        document.getElementById('q').addEventListener('input', e => {
+            clearTimeout(timer);
+            timer = setTimeout(() => search(e.target.value.trim()), 200);
+        });
+
+        async function add(name) {
+            const r = await api('/api/shopping', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            });
+            if (!r.ok) { toast((r.data && r.data.detail) || '담지 못했어요.'); return; }
+            await load();
+        }
+
+        async function toFridge() {
+            const r = await api('/api/shopping/to-fridge', { method: 'POST' });
+            if (!r.ok) { toast('냉장고에 넣지 못했어요.'); return; }
+            let msg = `${r.data.moved}개를 냉장고에 넣었어요. (소비기한은 냉장고에서 입력)`;
+            if (r.data.skipped) msg += ` 기본 재료·이미 있는 ${r.data.skipped}개는 제외했어요.`;
+            toast(msg);
+            await load();
+        }
+
+        load();
+    </script>
+</body>
+
+</html>
