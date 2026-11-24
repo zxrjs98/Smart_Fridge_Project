@@ -368,38 +368,7 @@ def delete_item(item_id: int, request: Request, db: Session = Depends(get_db)):
 async def get_menu_page(request: Request):
     return templates.TemplateResponse(request=request, name="mypage.html")
 
-@app.get("/shopping")
-def get_shopping_list(request: Request, db: Session = Depends(get_db)):
-    user_id = get_current_user_id(request)
-    if not user_id:
-        return RedirectResponse(url="/", status_code=303)
-    shopping_list = db.query(models.ShoppingList).filter(models.ShoppingList.user_id == user_id).all()
-    return templates.TemplateResponse(request=request, name="shopping.html", context={"items": shopping_list})
 
-@app.post("/shopping/add")
-def add_shopping_item(request: Request, item_name: str = Form(...), db: Session = Depends(get_db)):
-    user_id = get_current_user_id(request)
-    if not user_id:
-        return {"error": "로그인이 필요합니다."}
-    existing_item = db.query(models.ShoppingList).filter(models.ShoppingList.user_id == user_id, models.ShoppingList.item_name == item_name).first()
-    if existing_item:
-        return RedirectResponse(url="/shopping", status_code=303)
-    new_item = models.ShoppingList(item_name=item_name, user_id=user_id, is_bought=False)
-    db.add(new_item)
-    db.commit()
-    return RedirectResponse(url="/shopping", status_code=303)
-
-@app.post("/shopping/delete/{item_id}")
-def delete_shopping_item(request: Request, item_id: int = Path(...), db: Session = Depends(get_db)):
-    user_id = get_current_user_id(request)
-    if not user_id:
-        return RedirectResponse(url="/", status_code=303)
-    item_to_delete = db.query(models.ShoppingList).filter(models.ShoppingList.id == item_id, models.ShoppingList.user_id == user_id).first()
-    if not item_to_delete:
-        return {"error": "삭제 권한이 없거나 존재하지 않는 항목입니다."}
-    db.delete(item_to_delete)
-    db.commit()
-    return RedirectResponse(url="/shopping", status_code=303)
 
 # 기본 재료 초기값 - 실제 레시피 재료명과 일치해야 효과가 있어요 (아래 SQL로 확인)
 DEFAULT_STAPLES = ["소금", "설탕", "후추", "간장", "참기름", "식용유", "고춧가루", "다진마늘", "물"]
@@ -416,6 +385,134 @@ def get_user_staples(db: Session, user_id: int) -> set:
 
 class StapleRequest(BaseModel):
     name: str
+
+# ---------------------------------------------------------
+# 장보기
+# ---------------------------------------------------------
+class ShoppingAddRequest(BaseModel):
+    name: str
+
+class ShoppingFromRecipeRequest(BaseModel):
+    recipe_id: int
+
+def _require_user(request: Request) -> int:
+    user_id = get_current_user_id(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+    return user_id
+
+@app.get("/shopping")
+def shopping_page(request: Request):
+    if not get_current_user_id(request):
+        return RedirectResponse(url="/", status_code=303)
+    return templates.TemplateResponse(request=request, name="shopping.html")
+
+@app.get("/api/shopping")
+def list_shopping(request: Request, db: Session = Depends(get_db)):
+    user_id = _require_user(request)
+    rows = db.query(models.ShoppingList).filter(
+        models.ShoppingList.user_id == user_id
+    ).order_by(models.ShoppingList.is_bought.asc(), models.ShoppingList.created_at.desc()).all()
+    return [{"id": r.id, "name": r.item_name, "is_bought": bool(r.is_bought)} for r in rows]
+
+@app.post("/api/shopping")
+def add_shopping(body: ShoppingAddRequest, request: Request, db: Session = Depends(get_db)):
+    user_id = _require_user(request)
+    name = body.name.strip()
+    if not db.query(models.MasterIngredient).filter(models.MasterIngredient.name == name).first():
+        raise HTTPException(status_code=400, detail="재료 사전에 없는 항목이에요.")
+    exists = db.query(models.ShoppingList).filter(
+        models.ShoppingList.user_id == user_id, models.ShoppingList.item_name == name
+    ).first()
+    if exists:
+        return {"status": "exists"}
+    db.add(models.ShoppingList(item_name=name, user_id=user_id, is_bought=False))
+    db.commit()
+    return {"status": "success"}
+
+@app.post("/api/shopping/{item_id}/toggle")
+def toggle_shopping(item_id: int, request: Request, db: Session = Depends(get_db)):
+    user_id = _require_user(request)
+    row = db.query(models.ShoppingList).filter(
+        models.ShoppingList.id == item_id, models.ShoppingList.user_id == user_id
+    ).first()
+    if not row:
+        raise HTTPException(status_code=404)
+    row.is_bought = not row.is_bought
+    db.commit()
+    return {"status": "success", "is_bought": bool(row.is_bought)}
+
+@app.delete("/api/shopping/{item_id}")
+def delete_shopping(item_id: int, request: Request, db: Session = Depends(get_db)):
+    user_id = _require_user(request)
+    row = db.query(models.ShoppingList).filter(
+        models.ShoppingList.id == item_id, models.ShoppingList.user_id == user_id
+    ).first()
+    if not row:
+        raise HTTPException(status_code=404)
+    db.delete(row)
+    db.commit()
+    return {"status": "success"}
+
+@app.post("/api/shopping/from-recipe")
+def shopping_from_recipe(body: ShoppingFromRecipeRequest, request: Request, db: Session = Depends(get_db)):
+    """레시피에서 냉장고에 없는 재료(기본 재료 제외)를 장보기에 담기"""
+    user_id = _require_user(request)
+    staples = get_user_staples(db, user_id)
+    have = {n for (n,) in db.query(models.Item.name).filter(models.Item.user_id == user_id).all()}
+
+    names = []
+    rows = db.query(models.RecipeIngredient.ingredient_name).filter(
+        models.RecipeIngredient.recipe_id == body.recipe_id
+    ).all()
+    for (n,) in rows:
+        if n not in staples and n not in have and n not in names:
+            names.append(n)
+
+    valid = set()
+    if names:
+        valid = {n for (n,) in db.query(models.MasterIngredient.name).filter(
+            models.MasterIngredient.name.in_(names)
+        ).all()}
+    listed = {n for (n,) in db.query(models.ShoppingList.item_name).filter(
+        models.ShoppingList.user_id == user_id
+    ).all()}
+
+    added, already, skipped = [], [], []
+    for n in names:
+        if n not in valid:
+            skipped.append(n)       # 재료 사전에 없음
+        elif n in listed:
+            already.append(n)       # 이미 장보기에 있음
+        else:
+            db.add(models.ShoppingList(item_name=n, user_id=user_id, is_bought=False))
+            added.append(n)
+    db.commit()
+    return {"status": "success", "added": added, "already": already, "skipped": skipped}
+
+@app.post("/api/shopping/to-fridge")
+def shopping_to_fridge(request: Request, db: Session = Depends(get_db)):
+    """구매 체크한 항목을 냉장고(소비기한 미입력)로 옮기고 장보기에서 제거"""
+    user_id = _require_user(request)
+    staples = get_user_staples(db, user_id)
+    have = {n for (n,) in db.query(models.Item.name).filter(models.Item.user_id == user_id).all()}
+
+    bought = db.query(models.ShoppingList).filter(
+        models.ShoppingList.user_id == user_id,
+        models.ShoppingList.is_bought.is_(True)
+    ).all()
+
+    moved, skipped = 0, 0
+    for row in bought:
+        if row.item_name in staples or row.item_name in have:
+            skipped += 1            # 기본 재료이거나 이미 냉장고에 있음
+        else:
+            db.add(models.Item(name=row.item_name, expiry_date=None, user_id=user_id))
+            have.add(row.item_name)
+            moved += 1
+        db.delete(row)
+    db.commit()
+    return {"status": "success", "moved": moved, "skipped": skipped}
 
 @app.get("/api/staples")
 def get_staples(request: Request, db: Session = Depends(get_db)):
@@ -518,12 +615,7 @@ def urgency_weight(d_day):
         return 1
     return 0
 
-@app.get("/api/recipes/recommend")
-def recommend_recipes(request: Request, db: Session = Depends(get_db)):
-    user_id = get_current_user_id(request)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
-
+def build_recommendations(db: Session, user_id: int):
     today = date.today()
     fridge_items = db.query(models.Item).filter(models.Item.user_id == user_id).all()
 
@@ -574,6 +666,14 @@ def recommend_recipes(request: Request, db: Session = Depends(get_db)):
     # 임박도 점수 높은 순, 동점이면 보유율 높은 순
     scored.sort(key=lambda x: (-x["urgency_score"], -x["match_rate"]))
     return scored[:3]
+
+@app.get("/api/recipes/recommend")
+def recommend_recipes(request: Request, db: Session = Depends(get_db)):
+    user_id = get_current_user_id(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
+    return build_recommendations(db, user_id)
+    
 
 @app.post("/api/recipes/{recipe_id}/favorite")
 async def toggle_favorite(recipe_id: int, request: Request, db: Session = Depends(get_db)):
@@ -1056,10 +1156,36 @@ def check_expiry_and_queue_notifications():
             push_sub = db.query(models.PushSubscription).filter(models.PushSubscription.user_id == user.id).first()
             if push_sub:
                 sub_info = json.loads(push_sub.subscription_info)
+
+                # 재료가 많으면 3개까지만 보여주고 나머지는 "외 N개"
+                shown = ", ".join(urgent_items[:5])
+                if len(urgent_items) > 5:
+                    shown += f" 외 {len(urgent_items) - 5}개"
+
+                recs = []
+                try:
+                    recs = build_recommendations(db, user.id)
+                except Exception as e:
+                    print(f"추천 계산 실패: {e}")
+
+                if recs:
+                    body = f"{shown}\n '{recs[0]['name']}' 등 추천 레시피 보러가기"
+                    url = "/main?open=recommend"
+                    action_title = "추천 레시피 보기"
+                else:
+                    body = f"{shown}\n 눌러서 냉장고 확인하기"
+                    url = "/main"
+                    action_title = "냉장고 보기"
+
                 try:
                     webpush(
                         subscription_info=sub_info,
-                        data=json.dumps({"title": "FreshKeep 소비기한 알림", "body": f"임박 재료: {', '.join(urgent_items)}"}),
+                        data=json.dumps({
+                            "title": f"소비기한 임박 재료 {len(urgent_items)}개",
+                            "body": body,
+                            "url": url,
+                            "action_title": action_title
+                        }),
                         vapid_private_key=VAPID_PRIVATE_KEY,
                         vapid_claims={"sub": "mailto:hsh021215@gmail.com"}
                     )

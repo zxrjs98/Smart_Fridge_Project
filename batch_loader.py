@@ -32,9 +32,8 @@ def refined_clean_ingredient(text):
     essential_sauces = ['굴소스', '칠리소스', '토마토소스', '머스터드소스', '데리야끼소스', '크림소스', '발사믹소스', '돈가스소스', '피쉬소스', '타바스코소스', '우스터소스', '스리라차소스', '키위소스', '살사소스']
 
     if '소스' in text and not any(es in text for es in essential_sauces):
-        # '소스'라는 글자 뒤부터만 살립니다.
         if '소스' in text:
-            text = text.split('소스')[-1] # '식초'만 남게 됨
+            text = text.split('소스')[-1] 
 
     synonyms = {
         '요구르트': '요거트',
