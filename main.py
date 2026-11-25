@@ -13,10 +13,10 @@ def main(page: ft.Page):
     page.window_height = 750
     page.theme_mode = ft.ThemeMode.LIGHT
     
-    # 1. 목록이 들어갈 컬럼 (스크롤 가능하게 설정)
+    # 목록이 들어갈 컬럼 (스크롤 가능하게 설정)
     inventory_column = ft.Column(expand=True, scroll=ft.ScrollMode.ALWAYS)
 
-    # 2. 데이터 불러오기 함수
+    # 데이터 불러오기 함수
     def fetch_items(e=None):
         try:
             print("🔄 데이터 불러오는 중...")
@@ -29,7 +29,7 @@ def main(page: ft.Page):
                     # D-Day에 따른 색상 정하기
                     d_day = item.get('d_day')
                     t_color = "red" if d_day is not None and d_day <= 1 else "black"
-                    d_text = "🚨 임박" if d_day is not None and d_day <= 1 else f"D-{d_day}"
+                    d_text = "임박" if d_day is not None and d_day <= 1 else f"D-{d_day}"
                     
                     # 리스트에 추가
                     inventory_column.controls.append(
@@ -47,10 +47,10 @@ def main(page: ft.Page):
                             border_radius=10
                         )
                     )
-                print(f"✅ {len(items)}개 목록 갱신 완료")
+                print(f"{len(items)}개 목록 갱신 완료")
                 page.update()
         except Exception as ex:
-            print(f"❌ 오류: {ex}")
+            print(f"오류: {ex}")
 
     def remove_item(name):
         requests.delete(f"{SERVER_URL}/items/{name}")
@@ -78,7 +78,7 @@ def main(page: ft.Page):
     )
     page.overlay.append(add_dialog)
 
-    # 4. 화면 구성 (여기가 핵심!)
+    # 화면 구성
     # 상단바 설정
     page.appbar = ft.AppBar(
         title=ft.Text("우리집 냉장고"),

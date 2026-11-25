@@ -1,5 +1,5 @@
 # ==========================================
-# 📦 기본 패키지 및 도구 모음
+# 기본 패키지 및 도구 모음
 # ==========================================
 import os
 import re
@@ -17,7 +17,7 @@ from pydantic import BaseModel
 from typing import List
 
 # ==========================================
-# 🚀 FastAPI 관련 도구
+# FastAPI 관련 도구
 # ==========================================
 from fastapi import FastAPI, Depends, HTTPException, Request, Form, UploadFile, File, Path
 from fastapi.templating import Jinja2Templates
@@ -26,7 +26,7 @@ from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse, File
 from fastapi import Body, HTTPException
 
 # ==========================================
-# 💾 데이터베이스 및 기능 도구
+# 데이터베이스 및 기능 도구
 # ==========================================
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -41,7 +41,7 @@ from pywebpush import webpush, WebPushException
 import requests
 from openai import OpenAI
 
-# 🔐 쿠키 서명(위조 방지)
+# 쿠키 서명(위조 방지)
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 # 환경 변수 로드
@@ -58,7 +58,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # -----------------------------
-# 🔐 세션 쿠키 서명/검증 헬퍼
+# 세션 쿠키 서명/검증 헬퍼
 # -----------------------------
 SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY:
@@ -100,7 +100,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 # -----------------------------
-# 💡 이메일 발송 도우미 함수
+# 이메일 발송 도우미 함수
 # -----------------------------
 def send_temp_password(receiver_email, temp_pw):
     sender_email = os.getenv("EMAIL_SENDER")
@@ -143,10 +143,12 @@ def send_id_email(receiver_email, username):
         return False
 
 # ---------------------------------------------------------
-# 1. 인증 및 계정 관리 (Login / Register / Profile)
+# 인증 및 계정 관리 (Login / Register / Profile)
 # ---------------------------------------------------------
 @app.get("/")
 def login_page(request: Request):
+    if get_current_user_id(request):
+        return RedirectResponse(url="/main", status_code=303)
     return templates.TemplateResponse(request=request, name="login.html")
 
 @app.post("/login")
@@ -273,7 +275,7 @@ def update_profile(current_pw: str = Form(None), new_pw: str = Form(None), new_p
     return JSONResponse({"status": "error", "message": "모든 필드를 입력해주세요."})
 
 # ---------------------------------------------------------
-# 2. 메인 서비스 (냉장고 관리)
+# 메인 서비스 (냉장고 관리)
 # ---------------------------------------------------------
 @app.get("/main")
 def main_page(request: Request, db: Session = Depends(get_db)):
@@ -305,10 +307,9 @@ def main_page(request: Request, db: Session = Depends(get_db)):
 @app.get("/items/search")
 def search_ingredients(q: str = "", db: Session = Depends(get_db)):
     query = db.query(models.MasterIngredient)
-    if not q or q == "popular":
-        results = query.order_by(models.MasterIngredient.name.asc()).limit(100).all()
-    else:
-        results = query.filter(models.MasterIngredient.name.contains(q)).all()
+    if q and q != "popular":
+        query = query.filter(models.MasterIngredient.name.contains(q))
+    results = query.order_by(models.MasterIngredient.name.asc()).all()
     return [{"name": r.name, "is_seasoning": r.is_seasoning} for r in results]
 
 @app.post("/items")
@@ -362,7 +363,7 @@ def delete_item(item_id: int, request: Request, db: Session = Depends(get_db)):
     raise HTTPException(status_code=404)
 
 # ---------------------------------------------------------
-# 3. 마이페이지 및 장보기 목록
+# 마이페이지 및 장보기 목록
 # ---------------------------------------------------------
 @app.get("/mypage", response_class=HTMLResponse)
 async def get_menu_page(request: Request):
@@ -370,7 +371,7 @@ async def get_menu_page(request: Request):
 
 
 
-# 기본 재료 초기값 - 실제 레시피 재료명과 일치해야 효과가 있어요 (아래 SQL로 확인)
+# 기본 재료 초기값
 DEFAULT_STAPLES = ["소금", "설탕", "후추", "간장", "참기름", "식용유", "고춧가루", "다진마늘", "물"]
 
 def get_user_staples(db: Session, user_id: int) -> set:
@@ -564,7 +565,7 @@ def remove_staple(name: str, request: Request, db: Session = Depends(get_db)):
     return {"status": "success"}
 
 # ---------------------------------------------------------
-# 4. 레시피 및 OCR 스캔 연동
+# 레시피 및 OCR 스캔 연동
 # ---------------------------------------------------------
 @app.get("/api/recipes")
 def get_recipes(request: Request, db: Session = Depends(get_db)):
@@ -630,7 +631,7 @@ def build_recommendations(db: Session, user_id: int):
         if d is not None and (item.name not in ing_dday or d < ing_dday[item.name]):
             ing_dday[item.name] = d
 
-    # 레시피 재료를 한 번에 조회 (레시피마다 쿼리하지 않도록)
+    # 레시피 재료를 한 번에 조회
     recipe_ings = {}
     rows = db.query(models.RecipeIngredient.recipe_id, models.RecipeIngredient.ingredient_name).all()
     for rid, name in rows:
@@ -807,7 +808,7 @@ async def scan_receipt(
         raise HTTPException(status_code=500, detail=".env의 OCR/OpenAI API 설정을 확인해주세요.")
 
     try:
-        # 1. 네이버 CLOVA OCR: 영수증 상품명 추출
+        # 네이버 CLOVA OCR: 영수증 상품명 추출
         image_bytes = await receipt.read()
         if not image_bytes:
             raise HTTPException(status_code=400, detail="영수증 이미지가 비어 있습니다.")
@@ -848,7 +849,7 @@ async def scan_receipt(
         if not raw_items:
             return {"status": "success", "items": [], "ingredient_names": []}
 
-        # 2. 653개 표준 재료명은 기존 master_ingredients를 기준으로 사용
+        # 653개 표준 재료명은 기존 master_ingredients를 기준으로 사용
         valid_names = {
             row[0] for row in db.query(models.MasterIngredient.name).all()
             if row[0]
@@ -856,7 +857,7 @@ async def scan_receipt(
         if not valid_names:
             raise HTTPException(status_code=500, detail="표준 재료 사전이 비어 있습니다.")
 
-        # 3. 영수증 상품명 오타 보정 + 표준 재료명 매칭 (기존 한 번의 요청으로 처리)
+        # 영수증 상품명 오타 보정 + 표준 재료명 매칭 (기존 한 번의 요청으로 처리)
         system_prompt = """
         너는 영수증에 인쇄된 상품명을 읽기 쉬운 이름으로 보정하고, 재료 사전과 연결하는 도우미야.
 
@@ -1084,7 +1085,7 @@ async def save_scanned_receipt_items(
 
 
 # ---------------------------------------------------------
-# 5. 웹 푸시 알림 및 스케줄러 시스템
+# 웹 푸시 알림 및 스케줄러 시스템
 # ---------------------------------------------------------
 @app.get("/sw.js")
 def get_service_worker():

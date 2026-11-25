@@ -348,6 +348,65 @@
             border-radius: 20px;
             cursor: pointer;
         }
+
+        .confirm-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .confirm-box {
+            background: #fff;
+            width: 80%;
+            max-width: 320px;
+            border-radius: 16px;
+            padding: 24px 20px 16px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .confirm-box p {
+            margin: 0 0 20px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            line-height: 1.5;
+            white-space: pre-line;
+        }
+
+        .confirm-btns {
+            display: flex;
+            gap: 10px;
+        }
+
+        .confirm-btns button {
+            flex: 1;
+            height: 46px;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .confirm-cancel {
+            background: #f1f3f5;
+            color: #555;
+        }
+
+        .confirm-ok {
+            background: #4A90E2;
+            color: #fff;
+        }
+
+        .confirm-ok.danger {
+            background: #ff4d4f;
+        }
     </style>
 </head>
 
@@ -423,15 +482,16 @@
                 <h4 class="settings-title">계정 관리</h4>
                 <ul class="settings-list">
                     <li>
-                        <a href="/logout" class="settings-item">
+                        <a href="/logout" class="settings-item"
+                            onclick="event.preventDefault(); showConfirm('로그아웃 하시겠습니까?', function () { location.href = '/logout'; });">
                             <div class="settings-item-left">
                                 <span class="material-icons">logout</span>&nbsp;로그아웃
                             </div>
                         </a>
                     </li>
                     <li>
-                        <form action="/withdraw" method="POST"
-                            onsubmit="return confirm('정말 탈퇴하시겠습니까? 모든 정보가 영구적으로 삭제됩니다.');" class="form-reset">
+                        <form action="/withdraw" method="POST" class="form-reset"
+                            onsubmit="event.preventDefault(); var f = this; showConfirm('정말 탈퇴하시겠습니까?\n모든 정보가 영구적으로 삭제됩니다.', function () { f.submit(); }, true);">
                             <button type="submit" class="settings-item btn-reset text-danger">
                                 <div class="settings-item-left">
                                     <span class="material-icons">group_off</span>&nbsp;회원 탈퇴
@@ -599,7 +659,30 @@
             if (res.ok) { await loadStaples(); searchStaple(); }
         }
     </script>
+    <div class="confirm-overlay" id="confirmOverlay">
+        <div class="confirm-box">
+            <p id="confirmMsg"></p>
+            <div class="confirm-btns">
+                <button class="confirm-cancel" id="confirmCancel">취소</button>
+                <button class="confirm-ok" id="confirmOk">확인</button>
+            </div>
+        </div>
+    </div>
 
+    <script>
+        function showConfirm(message, onOk, danger) {
+            var overlay = document.getElementById('confirmOverlay');
+            var ok = document.getElementById('confirmOk');
+            document.getElementById('confirmMsg').textContent = message;
+            ok.className = 'confirm-ok' + (danger ? ' danger' : '');
+            overlay.style.display = 'flex';
+
+            function close() { overlay.style.display = 'none'; }
+            ok.onclick = function () { close(); onOk(); };
+            document.getElementById('confirmCancel').onclick = close;
+            overlay.onclick = function (e) { if (e.target === overlay) close(); };
+        }
+    </script>
 </body>
 
 </html>

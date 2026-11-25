@@ -52,7 +52,7 @@
         </button>
             </form>
 
-            <!-- 1. 성공 시 (구분선 + 텍스트 + 다시 보내기) -->
+            <!--  성공 시 (구분선 + 텍스트 + 다시 보내기) -->
             {% if pw_message %}
             <div style="margin-top: 30px; text-align: center; border-top: 1px dashed #ccc; padding-top: 20px;">
                 <p style="font-weight: bold; color: #333; margin-bottom: 5px;">{{ pw_message }}</p>
@@ -66,7 +66,7 @@
             </div>
             {% endif %}
 
-            <!-- 2. 에러 발생 시 (상자 없이 빨간색 작은 글씨) -->
+            <!-- 에러 발생 시 (상자 없이 빨간색 작은 글씨) -->
             {% if pw_error %}
             <div style="margin-top: 15px; text-align: center;">
                 <p style="color: #d9534f; font-size: 13px; font-weight: 500;">
