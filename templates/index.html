@@ -1309,8 +1309,15 @@
                 if (!response.ok || data.status !== 'success') {
                     throw new Error(data.detail || data.message || '저장 실패');
                 }
-                const skipped = data.skipped_count ? ` (기본 재료 ${data.skipped_count}개 제외)` : '';
-                alert(`${data.saved_count}개 재료를 냉장고에 저장했습니다.${skipped}`);
+                const notes = [];
+                if (data.skipped_staples_count) {
+                    notes.push(`기본 재료 ${data.skipped_staples_count}개 제외`);
+                }
+                if (data.skipped_duplicate_count) {
+                    notes.push(`이미 있는 재료 ${data.skipped_duplicate_count}개 제외`);
+                }
+                const extraInfo = notes.length ? ` (${notes.join(', ')})` : '';
+                alert(`${data.saved_count}개 재료를 냉장고에 저장했습니다.${extraInfo}`);
                 location.reload();
             } catch (error) {
                 alert('저장 실패: ' + error.message);
