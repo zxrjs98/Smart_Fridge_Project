@@ -70,7 +70,7 @@
     </div>
 
     <script>
-        // 1. 아이디 6~12자 검사 (입력창에서 포커스가 벗어날 때)
+        // 아이디 6~12자 검사 (입력창에서 포커스가 벗어날 때)
         document.getElementById('username').addEventListener('blur', function() {
             const val = this.value;
             const errorSpan = document.getElementById('username_error');
@@ -84,7 +84,7 @@
             }
         });
 
-        // 2. 비밀번호 일치 검사 (비밀번호 확인 창에 입력할 때마다 실시간으로)
+        // 비밀번호 일치 검사 (비밀번호 확인 창에 입력할 때마다 실시간으로)
         document.getElementById('password_confirm').addEventListener('keyup', function() {
             const pwd = document.getElementById('password').value;
             const pwdConfirm = this.value;
@@ -97,7 +97,7 @@
             }
         });
 
-        // 3. 폼 제출 전 최종 검사 (버튼 눌렀을 때)
+        // 폼 제출 전 최종 검사 (버튼 눌렀을 때)
         document.getElementById('registerForm').addEventListener('submit', function(e) {
             const username = document.getElementById('username').value;
             const pwd = document.getElementById('password').value;

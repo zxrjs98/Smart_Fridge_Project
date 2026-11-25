@@ -38,10 +38,10 @@ self.addEventListener('push', function(event) {
 });
 
 self.addEventListener('notificationclick', function(event) {
-    // 1. 클릭된 알림창을 화면에서 즉시 닫아줍니다.
+    // 클릭된 알림창을 화면에서 즉시 닫아줍니다.
     event.notification.close();
 
-    // 2. 현재 브라우저 탭이나 PWA 창이 열려있는지 확인하고 제어합니다.
+    // 현재 브라우저 탭이나 PWA 창이 열려있는지 확인하고 제어합니다.
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true })
         .then(function(clientList) {
