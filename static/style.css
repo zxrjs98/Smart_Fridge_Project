@@ -20,7 +20,7 @@ body {
 }
 
 .app-container {
-    max-width: 600px;
+    max-width: 430px;
     margin: 0 auto;
     padding: 20px;
     padding-bottom: 120px;
@@ -125,7 +125,7 @@ body {
     left: 50% !important;
     transform: translateX(-50%);
     width: 100%;
-    max-width: 600px;
+    max-width: 430px;
     height: 100%;
     background: white;
     z-index: 3000;
@@ -249,16 +249,26 @@ body {
 }
 
 
-/* 💡 내 정보 수정 팝업 배경 */
+/* 내 정보 수정 팝업 배경 */
 .modal-overlay {
-    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    background-color: rgba(0, 0, 0, 0.6); z-index: 1000;
-    display: none; align-items: center; justify-content: center;
-    opacity: 0; transition: opacity 0.3s ease;
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 430px;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.6);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
 }
 .modal-overlay.show { display: flex; opacity: 1; }
 
-/* 💡 내 정보 수정 팝업 본체 */
+/* 내 정보 수정 팝업 본체 */
 .info-modal {
     background: #fff; width: 90%; max-width: 400px;
     border-radius: 15px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
