@@ -993,63 +993,15 @@ async def save_scanned_receipt_items(
         row[0] for row in db.query(models.MasterIngredient.name).all()
     }
     staples = get_user_staples(db, user_id)
-    checked = []
-    skipped = 0
-
-    # 일부 항목이 잘못되면 DB에 아무것도 저장하지 않도록 먼저 모두 검증합니다.
-    for entry in entries:
-        if not isinstance(entry, dict):
-            raise HTTPException(status_code=400, detail="잘못된 재료 데이터입니다.")
-        name = entry.get("name")
-        expiry_text = entry.get("expiry_date") or ""
-        if not isinstance(name, str):
-            raise HTTPException(status_code=400, detail="재료명 형식이 올바르지 않습니다.")
-        name = name.strip()
-        if name not in valid_names:
-            raise HTTPException(status_code=400, detail=f"표준 재료 사전에 없는 재료입니다: {name}")
-        if name in staples:
-            skipped += 1
-            continue  # 기존 코드와 동일: 기본 재료는 별도 저장하지 않음
-
-        if not isinstance(expiry_text, str):
-            raise HTTPException(status_code=400, detail="소비기한 형식이 올바르지 않습니다.")
-        try:
-            expiry_date = datetime.strptime(expiry_text, "%Y-%m-%d").date() if expiry_text else None
-        except ValueError:
-            raise HTTPException(status_code=400, detail=f"{name}의 소비기한이 올바르지 않습니다.")
-        checked.append(models.Item(name=name, expiry_date=expiry_date, user_id=user_id))
-
-    try:
-        db.add_all(checked)
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise
-
-    return {"status": "success", "saved_count": len(checked), "skipped_count": skipped}
-
-
-
-@app.post("/scan_receipt/save")
-async def save_scanned_receipt_items(
-    request: Request,
-    db: Session = Depends(get_db)
-):
-    user_id = get_current_user_id(request)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="로그인이 필요합니다.")
-
-    payload = await request.json()
-    entries = payload.get("items") if isinstance(payload, dict) else None
-    if not isinstance(entries, list) or not 1 <= len(entries) <= 100:
-        raise HTTPException(status_code=400, detail="저장할 재료를 1~100개 선택해주세요.")
-
-    valid_names = {
-        row[0] for row in db.query(models.MasterIngredient.name).all()
+    existing_names = {
+        row[0]
+        for row in db.query(models.Item.name)
+        .filter(models.Item.user_id == user_id)
+        .all()
     }
-    staples = get_user_staples(db, user_id)
     checked = []
-    skipped = 0
+    skipped_staples = 0
+    skipped_duplicates = 0
 
     # 일부 항목이 잘못되면 DB에 아무것도 저장하지 않도록 먼저 모두 검증합니다.
     for entry in entries:
@@ -1062,9 +1014,13 @@ async def save_scanned_receipt_items(
         name = name.strip()
         if name not in valid_names:
             raise HTTPException(status_code=400, detail=f"표준 재료 사전에 없는 재료입니다: {name}")
+
         if name in staples:
-            skipped += 1
-            continue  # 기존 코드와 동일: 기본 재료는 별도 저장하지 않음
+            skipped_staples += 1
+            continue  # 기본 재료는 별도 저장하지 않음
+        if name in existing_names:
+            skipped_duplicates += 1
+            continue  # 이미 냉장고에 있는 재료는 중복 저장하지 않음
 
         if not isinstance(expiry_text, str):
             raise HTTPException(status_code=400, detail="소비기한 형식이 올바르지 않습니다.")
@@ -1073,6 +1029,7 @@ async def save_scanned_receipt_items(
         except ValueError:
             raise HTTPException(status_code=400, detail=f"{name}의 소비기한이 올바르지 않습니다.")
         checked.append(models.Item(name=name, expiry_date=expiry_date, user_id=user_id))
+        existing_names.add(name)
 
     try:
         db.add_all(checked)
@@ -1081,8 +1038,13 @@ async def save_scanned_receipt_items(
         db.rollback()
         raise
 
-    return {"status": "success", "saved_count": len(checked), "skipped_count": skipped}
-
+    return {
+        "status": "success",
+        "saved_count": len(checked),
+        "skipped_staples_count": skipped_staples,
+        "skipped_duplicate_count": skipped_duplicates,
+        "skipped_count": skipped_staples + skipped_duplicates,
+    }
 
 # ---------------------------------------------------------
 # 웹 푸시 알림 및 스케줄러 시스템
